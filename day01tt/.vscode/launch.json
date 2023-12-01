@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "type": "java",
+        "name": "Launch Current File",
+        "request": "launch",
+        "classPaths": ["/Users/tobe/code/tailspin-v0/tailspin.jar"],
+        "mainClass": "tailspin.Tailspin",
+        "args": "${file} < input.txt"
+      }
+    ]
+}

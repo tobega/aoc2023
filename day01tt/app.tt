@@ -1,0 +1,35 @@
+def input: [$IN::lines];
+
+composer maybe-int
+  <INT|nothing>
+  rule nothing: (<'.*'>)
+end maybe-int
+
+composer digits
+  [<maybe-digit>*]
+  rule maybe-digit: <'.'> -> maybe-int
+end digits
+
+//part 1
+$input... -> digits -> $(first) * 10 + $(last) -> ..=Sum&{of: :()} -> !OUT::write
+
+'
+' -> !OUT::write
+
+composer written-digits
+  [<zero|one|two|three|four|five|six|seven|eight|nine|maybe-digit>*]
+  rule zero: <'z(?=ero)'> -> 0
+  rule one: <'o(?=ne)'> -> 1
+  rule two: <'t(?=wo)'> -> 2
+  rule three: <'t(?=hree)'> -> 3
+  rule four: <'f(?=our)'> -> 4
+  rule five: <'f(?=ive)'> -> 5
+  rule six: <'s(?=ix)'> -> 6
+  rule seven: <'s(?=even)'> -> 7
+  rule eight: <'e(?=ight)'> -> 8
+  rule nine: <'n(?=ine)'> -> 9
+  rule maybe-digit: <'.'> -> maybe-int
+end written-digits
+
+//part 2
+$input... -> written-digits -> $(first) * 10 + $(last) -> ..=Sum&{of: :()} -> !OUT::write
