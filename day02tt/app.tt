@@ -1,0 +1,31 @@
+def input: [$IN::lines];
+
+composer game-parts
+  @: 1;
+  (<='Game '> def id: <INT>; <=': '>) <part>+
+  rule part: {id: $id, part: $@, red: 0"1", green: 0"1", blue: 0"1" <cube-count>+} (@: $@ + 1;) (<=';'>? <WS>?)
+  rule cube-count: (def count: <INT"1">;) (<WS>) <'\w+'>: $count (<=','>? <WS>?)
+end game-parts
+
+// part 1
+def max-cubes: {| $input... -> game-parts |}
+  -> $(collect {
+      red: Max&{by: :(red:), select: :(red:)},
+      green: Max&{by: :(green:), select: :(green:)},
+      blue: Max&{by: :(blue:), select: :(blue:)}
+    } by $({id:}));
+
+$max-cubes ...
+  -> \(
+    <{red: <..12"1">, green: <..13"1">, blue: <..14"1">}> $!
+  \)
+  -> $.id::raw -> ..=Sum&{of: :()}
+  -> !OUT::write
+'
+' -> !OUT::write
+
+// part 2
+$max-cubes ...
+  -> $.red * $.green * $.blue
+  -> ..=Sum&{of: :()}
+  -> !OUT::write
