@@ -1,4 +1,5 @@
 import file("input.arr") as I
+include math
 
 data CubeSet: cube-set(red :: Number, green :: Number, blue :: Number) end
 
@@ -41,3 +42,19 @@ fun part1():
 end
 
 check: part1() is 3035 end
+
+fun max-cubes(c, d):
+  fun greater-of(a, b):
+    if a > b: a else: b end
+  end
+  cube-set(greater-of(c.red, d.red), greater-of(c.green, d.green), greater-of(c.blue, d.blue))
+end
+
+fun part2():
+  I.raw.map(game-from-line)
+    .map(lam(g): g.cube-sets.foldl(max-cubes, cube-set(0,0,0)) end)
+    .map(lam(cs): cs.red * cs.green * cs.blue end)
+    .foldl(_ + _, 0)
+end
+
+check: part2() is 66027 end
