@@ -25,6 +25,13 @@ processor Schematic
   source dump
     $@Schematic !
   end dump
+
+  source get-gear-ratios
+    $@Schematic.layout -> \[y;x](
+      <='*'> $@Schematic.labels -> \[i](<{x1: <..$x+1"x">, x2: <$x-1"x"..>, y: <$y-1"y"..$y+1"y">}> $!\)
+        -> \(<[](2)> $(first).part-no::raw * $(last).part-no::raw ! \) !
+    \) ... ... !
+  end get-gear-ratios
 end Schematic
 
 def schematic: $Schematic;
@@ -65,3 +72,8 @@ end 'parse schematic'
 
 // part 1
 $schematic::get-part-nos -> $::raw -> ..=Sum&{of: :()} -> !OUT::write
+'
+' -> !OUT::write
+
+// part 2
+$schematic::get-gear-ratios -> ..=Sum&{of: :()} -> !OUT::write
