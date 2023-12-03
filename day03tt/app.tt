@@ -1,0 +1,67 @@
+def input: 1"y":[$IN::lines];
+
+data label <{x1: <"x">, x2: <"x">, y: <"y">, part-no: <1..>}>
+
+processor Schematic
+  @: {layout: 1"y":[], labels: []};
+  sink add-label
+    ..|@Schematic.labels: $;
+  end add-label
+  sink add-part&{x:, y:}
+    $@Schematic.layout::last+1"y"..$y -> ..|@Schematic.layout: 1"x":[];
+    $@Schematic.layout($y)::last+1"x"..$x -> ..|@Schematic.layout($y): '.';
+    @Schematic.layout($y;$x): $;
+  end add-part
+
+  source get-part-nos
+    $@Schematic.labels... -> \(
+        def label: $;
+        [$@Schematic.layout($.y-1"y"..$.y+1"y"; $.x1-1"x"..$.x2+1"x")... ...
+          -> \(<~='.'> $!\)] -> #
+        when <~[](0)> do $label.part-no !
+      \) !
+  end get-part-nos
+
+  source dump
+    $@Schematic !
+  end dump
+end Schematic
+
+def schematic: $Schematic;
+
+composer to-int
+  <INT>
+end to-int
+
+composer parse-schematic-line&{y:, schematic:}
+  @: 1"x";
+  (<space|label|part>*)
+  rule space: <='.'> (@: $@ + 1"x";)
+  rule label: <number>
+  rule number: { y: $y, x1: $@, part-no: [<digit>+] -> '$...;' -> to-int, x2: $@ - 1"x" } -> schematic::add-label
+  rule digit: <'[0-9]'> (@: $@ + 1"x";)
+  rule part: <'[^.0-9]'> -> schematic::add-part&{x: $@ - 1"x", y: $y} (@: $@ + 1"x";)
+end parse-schematic-line
+
+$input -> \[y]($ -> !parse-schematic-line&{y: $y, schematic: $schematic}\) -> !VOID
+
+test 'parse schematic'
+  def input: 1"y":[
+    '467..114..',
+    '...*......',
+    '..35..633.',
+    '......#...',
+    '617*......',
+    '.....+.58.',
+    '..592.....',
+    '......755.',
+    '...$$.*....',
+    '.664.598..'
+  ];
+  $input -> \[y]($ -> !parse-schematic-line&{y: $y, schematic: $schematic}\) -> !VOID
+  $schematic::dump -> !OUT::write
+  assert $schematic::get-part-nos -> $::raw -> ..=Sum&{of: :()} <=4361> 'example'
+end 'parse schematic'
+
+// part 1
+$schematic::get-part-nos -> $::raw -> ..=Sum&{of: :()} -> !OUT::write
