@@ -44,8 +44,8 @@ composer parse-schematic-line&{y:, schematic:}
   @: 1"x";
   (<space|label|part>*)
   rule space: <='.'> (@: $@ + 1"x";)
-  rule label: <number>
-  rule number: { y: $y, x1: $@, part-no: [<digit>+] -> '$...;' -> to-int, x2: $@ - 1"x" } -> schematic::add-label
+  rule label: { y: $y, x1: $@, part-no: <number>, x2: $@ - 1"x" } -> schematic::add-label
+  rule number: [<digit>+] -> '$...;' -> to-int
   rule digit: <'[0-9]'> (@: $@ + 1"x";)
   rule part: <'[^.0-9]'> -> schematic::add-part&{x: $@, y: $y} (@: $@ + 1"x";)
 end parse-schematic-line
