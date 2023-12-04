@@ -8,12 +8,34 @@ end scratch-card
 
 templates count-score
   @: 1;
-  {score: 0, $... -> \((score: $@count-score) ! @count-score: $@count-score * 2; \)}
+  {score: 0, 1..$ -> \((score: $@count-score) ! @count-score: $@count-score * 2; \)}
   -> $.score::raw !
 end count-score
+
+templates count-matching
+  ({| $.yours... -> {n: $}|} matching {| $.winning... -> {n: $}|}) -> $::count !
+end count-matching
 
 // part 1
 
 $input ... -> scratch-card
-  -> ({| $.yours... -> {n: $}|} matching {| $.winning... -> {n: $}|})
+  -> count-matching
   -> count-score -> ..=Sum&{of: :()} -> !OUT::write
+
+'
+' -> !OUT::write
+
+templates card-collect
+  def cards: $;
+  @: [1..$cards::length+100 -> 1];
+  1..~$cards::length -> \win-cards(
+    def card-no: $;
+    def winnings: $cards($card-no) -> count-matching;
+    1..$winnings -> @card-collect($card-no + $): $@card-collect($card-no + $) + $@card-collect($card-no);
+  \win-cards) -> !VOID
+  $@(1..$cards::length)... -> ..=Sum&{of: :()} !
+end card-collect
+
+// part 2
+
+[$input... -> scratch-card] -> card-collect -> !OUT::write
