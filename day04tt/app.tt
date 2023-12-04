@@ -1,0 +1,19 @@
+def input: [$IN::lines];
+
+composer scratch-card
+  {id: <id>, winning: [<number>*], (<='|'>) yours: [<number>*]}
+  rule id: (<='Card'> <WS>?) <INT> (<=': '>)
+  rule number: (<WS>?) <INT> (<WS>?)
+end scratch-card
+
+templates count-score
+  @: 1;
+  {score: 0, $... -> \((score: $@count-score) ! @count-score: $@count-score * 2; \)}
+  -> $.score::raw !
+end count-score
+
+// part 1
+
+$input ... -> scratch-card
+  -> ({| $.yours... -> {n: $}|} matching {| $.winning... -> {n: $}|})
+  -> count-score -> ..=Sum&{of: :()} -> !OUT::write
