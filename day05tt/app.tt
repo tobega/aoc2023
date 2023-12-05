@@ -1,0 +1,96 @@
+// WARNING: some parts of this code might be a little convoluted and tricky because I'm trying to
+// create some rather dynamic generic code.
+// Otherwise, the Tailspin philosophy is really that you should usually deal with things as they are
+// and explicitly repeat similar code for different data.
+
+source read-input
+  composer seeds
+    (<'seeds:'> <WS>?) [<seed>+]
+    rule seed: <seed´INT> (<WS>?)
+  end seeds
+  templates read-map
+    composer map-header
+    {source: <'[^-]+'>, (<='-to-'>) destination:  <'\S+'> (<WS> <='map:'>)}
+    end map-header
+
+    composer range&{destination:, source:}
+      { <destination>: <INT>, (<WS>) <source>: <INT>, (<WS>) length: <INT>}
+      rule destination: $destination::raw // seems we have to do this separate rule to generate a key
+      rule source: $source::raw
+    end range
+
+    @: {header: $ -> map-header,
+        ranges: []};
+    $IN::readline -> #
+    $@!
+
+    when <~=''> do
+      $ -> range&{destination: $@.header.destination, source: $@.header.source} -> ..|@.ranges: $;
+      $IN::readline -> #
+  end read-map
+
+  @: { seeds: $IN::readline -> seeds,
+       mappings: []};
+  $IN::readline -> !VOID
+  $IN::readline -> #
+  $@ !
+
+  <> $ -> read-map -> ..|@.mappings: $;
+     $IN::readline -> #
+end read-input
+
+def almanac: $read-input;
+
+// this mapping is reversible, depending on the tag on the input, outputting a tagged value for the other tag
+// the code is also pretty funky, with dynamic key-values used to tag data
+operator (value map mapping)
+  composer key&{value:}
+    <'.*'>: $value::raw
+  end key
+  operator (kv increment i)
+    $kv::key -> key&{value: ($kv::value -> $::raw) + $i::raw} !
+  end increment
+
+  templates maybe-map
+    @: $mapping.ranges($);
+    def length: ^@.length -> $::raw;
+    @: { at-least: [$@...], // list of key-value pairs
+        below: [$@... -> ($ increment $length)]};
+
+    $value -> #
+    when <´..´ $@.at-least(1)::value..~$@.below(1)::value> do
+      def diff: $::raw -($@.at-least(1)::value -> $::raw);
+      ($@.at-least(2) increment $diff) -> $::value !
+
+    when <´..´ $@.at-least(2)::value..~$@.below(2)::value> do
+      def diff: $::raw -($@.at-least(2)::value -> $::raw);
+      ($@.at-least(1) increment $diff) -> $::value !
+  end maybe-map
+
+  templates re-tag
+    @: $mapping.ranges(1);
+    ^@.length -> !VOID
+    @: [$@...];
+    $value -> #
+
+    when <´..´ ..$@(1)::value|$@(1)::value..> do
+      def value: $::raw;
+      $@(2)::key -> key&{value: $value} -> $::value !
+
+    when <´..´ ..$@(2)::value|$@(2)::value..> do
+      def value: $::raw;
+      $@(1)::key -> key&{value: $value} -> $::value !
+  end re-tag
+
+  [1..$mapping.ranges::length -> maybe-map] -> #
+  when <[](1)> do $(1) !
+  otherwise $value -> re-tag !
+end map
+
+// part 1
+$almanac.seeds... -> \(
+  @: $;
+  $almanac.mappings... -> @: ($@ map $);
+  $@ !
+\) -> ..=Min&{by: :(), select: :()}
+-> !OUT::write
