@@ -43,7 +43,7 @@ def almanac: $read-input;
 
 // this mapping is reversible, depending on the tag on the input, outputting a tagged value for the other tag
 // the code is also pretty funky, with dynamic key-values used to tag data
-operator (value map mapping)
+operator (value-ranges map mapping)
   composer key&{value:}
     <'.*'>: $value::raw
   end key
@@ -57,21 +57,56 @@ operator (value map mapping)
     @: { at-least: [$@...], // list of key-value pairs
         below: [$@... -> ($ increment $length)]};
 
-    $value -> #
-    when <´..´ $@.at-least(1)::value..~$@.below(1)::value> do
-      def diff: $::raw -($@.at-least(1)::value -> $::raw);
-      ($@.at-least(2) increment $diff) -> $::value !
+    def ranges: $@map;
+    @map: [];
 
-    when <´..´ $@.at-least(2)::value..~$@.below(2)::value> do
-      def diff: $::raw -($@.at-least(2)::value -> $::raw);
-      ($@.at-least(1) increment $diff) -> $::value !
+    $ranges... -> #
+
+    when <?($(1) <´..´ $@.below(1)::value..>)> do
+      ..|@map: $; // try another mapping
+
+    when <?($(1) <´..´ ..~$@.at-least(1)::value>)> do
+      def value: $(1);
+      def length: $(2);
+      def under-length: ($@.at-least(1)::value -> $::raw) - $value::raw;
+      $length -> \(<..$under-length> $! \) -> ..|@map: [$value, $length];
+      $length -> \(<$under-length~..> $! \) -> ..|@map: [$value, $under-length];
+      $length -> \(<$under-length~..> $! \) -> [$@.at-least(1)::value, $length - $under-length] -> # // match rest
+
+    when <?($(1) <´..´ $@.at-least(1)::value..~$@.below(1)::value>)> do
+      def length: $(2);
+      def diff: $(1)::raw -($@.at-least(1)::value -> $::raw);
+      def valid-length: ($@.below(1)::value -> $::raw) - $(1)::raw;
+      $length -> \(<..$valid-length> $! \) -> [($@.at-least(2) increment $diff) -> $::value, $length] !
+      $length -> \(<$valid-length~..> $! \) -> [($@.at-least(2) increment $diff) -> $::value, $valid-length] !
+      $length -> \(<$valid-length~..> $! \) -> ..|@map: [$@.below(1)::value, $length - $valid-length];
+
+    // reverse mapping
+    when <?($(1) <´..´ $@.below(2)::value..>)> do
+      ..|@map: $; // try another mapping
+
+    when <?($(1) <´..´ ..~$@.at-least(2)::value>)> do
+      def value: $(1);
+      def length: $(2);
+      def under-length: ($@.at-least(2)::value -> $::raw) - $value::raw;
+      $length -> \(<..$under-length> $! \) -> ..|@map: [$value, $length];
+      $length -> \(<$under-length~..> $! \) -> ..|@map: [$value, $under-length];
+      $length -> \(<$under-length~..> $! \) -> [$@.at-least(2)::value, $length - $under-length] -> # // match rest
+
+    when <?($(1) <´..´ $@.at-least(2)::value..~$@.below(2)::value>)> do
+      def length: $(2);
+      def diff: $(1)::raw -($@.at-least(2)::value -> $::raw);
+      def valid-length: ($@.below(2)::value -> $::raw) - $(1)::raw;
+      $length -> \(<..$valid-length> $! \) -> [($@.at-least(1) increment $diff) -> $::value, $length] !
+      $length -> \(<$valid-length~..> $! \) -> [($@.at-least(1) increment $diff) -> $::value, $valid-length] !
+      $length -> \(<$valid-length~..> $! \) -> ..|@map: [$@.below(2)::value, $length - $valid-length];
   end maybe-map
 
   templates re-tag
     @: $mapping.ranges(1);
     ^@.length -> !VOID
     @: [$@...];
-    $value -> #
+    [$(1) -> #, $(2)] !
 
     when <´..´ ..$@(1)::value|$@(1)::value..> do
       def value: $::raw;
@@ -82,15 +117,23 @@ operator (value map mapping)
       $@(1)::key -> key&{value: $value} -> $::value !
   end re-tag
 
-  [1..$mapping.ranges::length -> maybe-map] -> #
-  when <[](1)> do $(1) !
-  otherwise $value -> re-tag !
+  @: $value-ranges;
+  [1..$mapping.ranges::length -> maybe-map, $@... -> re-tag] !
 end map
 
-// part 1
-$almanac.seeds... -> \(
+templates apply-mappings
   @: $;
   $almanac.mappings... -> @: ($@ map $);
   $@ !
-\) -> ..=Min&{by: :(), select: :()}
+end apply-mappings
+
+// part 1
+[$almanac.seeds... -> [$, 1]] -> apply-mappings ... -> ..=Min&{by: :(1), select: :()}
+-> !OUT::write
+'
+' -> !OUT::write
+
+// part 2
+[1..$almanac.seeds::length:2 -> [$almanac.seeds($), $almanac.seeds($+1)::raw]]
+-> apply-mappings ... -> ..=Min&{by: :(1), select: :()}
 -> !OUT::write
