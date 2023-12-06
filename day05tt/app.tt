@@ -4,84 +4,140 @@
 // and explicitly repeat similar code for different data.
 
 source read-input
+  // parser for the seeds line, returns an array of numeric identifiers tagged as "seed´"
   composer seeds
     (<'seeds:'> <WS>?) [<seed>+]
     rule seed: <seed´INT> (<WS>?)
   end seeds
+  // dynamically parses one of the mapping sections from the input
   templates read-map
+    // parser to extract the names of the source and destination types of the mapping
+    // Example: 'foo-to-bar map:' becomes {source: 'foo', destination: 'bar'}
     composer map-header
     {source: <'[^-]+'>, (<='-to-'>) destination:  <'\S+'> (<WS> <='map:'>)}
     end map-header
 
+    // parses a range line from the input, returning a structure with dynamically generated keys for source and destination type
+    // the key associated with the value will also automatically tag the value
+    // Example: with destination: 'bar' and source: 'foo', '1 6 3' will give {bar: 1, foo: 6, length: 3}
     composer range&{destination:, source:}
       { <destination>: <INT>, (<WS>) <source>: <INT>, (<WS>) length: <INT>}
       rule destination: $destination::raw // seems we have to do this separate rule to generate a key
       rule source: $source::raw
     end range
 
+    // Initialize state by reading the input line as the map header (extracting the source and destination names)
+    // Prepare an empty list to append the ranges to
     @: {header: $ -> map-header,
         ranges: []};
+    // Read one line of input and send it to the matchers to be handled appropriately
     $IN::readline -> #
+    // At the end, output the accumulated state
     $@!
 
+    // Matcher: when the current value (the read line) is not empty
     when <~=''> do
+      // parse the line as a range structure and append it to the ranges-list
       $ -> range&{destination: $@.header.destination, source: $@.header.source} -> ..|@.ranges: $;
+      // read the next line and send it to the matchers
       $IN::readline -> #
+    // Matcher (or, rather, no matcher): when the current value is an empty string, don't do anything with it
   end read-map
 
+  // Initialize state by reading the seeds line
+  // Prepare an empty list to append mappings to
   @: { seeds: $IN::readline -> seeds,
        mappings: []};
+  // Discard the next input line after the seeds line
   $IN::readline -> !VOID
+  // Read the next input line and send to the matchers to be handled
   $IN::readline -> #
+  // At the end, output the accumulated state
   $@ !
 
+  // Matcher: Any line received is interpreted as the start of a mapping section, so process a mapping section
   <> $ -> read-map -> ..|@.mappings: $;
+     // Read the next line (which will be the start of the next mapping section)
+     // At the end of the file/input, no line will be read (and no line therefore sent to the matcher)
      $IN::readline -> #
 end read-input
 
+// store the parsed input as the named value "almanac"
 def almanac: $read-input;
 
+// Define a binary operator to apply a mapping to a list of value-ranges
 // this mapping is reversible, depending on the tag on the input, outputting a tagged value for the other tag
 // the code is also pretty funky, with dynamic key-values used to tag data
 operator (value-ranges map mapping)
+  // This is a trick to create a keyed value, e.g. (foo: 1), with a dynamically generated key from a string
   composer key&{value:}
     <'.*'>: $value::raw
   end key
+  // An operator that takes an arbitrary keyed value and returns a new keyed value with the same key,
+  // and the value incremented by the second argument
   operator (kv increment i)
     $kv::key -> key&{value: ($kv::value -> $::raw) + $i::raw} !
   end increment
 
+  // Given the index of a mapping-range, will map the currently unmapped ranges overlapping that mapping-range
   templates maybe-map
+    // Set the state variable to the desired mapping range for the input index
     @: $mapping.ranges($);
+    // Remove the length keyed value from the state to avoid it interfering with our trickiness here,
+    // and save the value as a defined value instead
     def length: ^@.length -> $::raw;
-    @: { at-least: [$@...], // list of key-value pairs
+    // Convert the mapping structure to a list of keyed values, to be able to access them anonymously by number
+    // one list (at-least) for the base values, and one list (below), for the excluded end of the range
+    // if we had wanted to, we could have checked the keys against the mapping header and decide this mapping direction
+    @: { at-least: [$@...],
         below: [$@... -> ($ increment $length)]};
 
+    // Store the state (list of unmapped value-ranges) as a defined value and clear the state to receive value-ranges that are still unmapped
     def ranges: $@map;
     @map: [];
 
+    // Send all previously unmapped value-ranges to the matchers to see if they can be mapped, in whole or in part
     $ranges... -> #
 
-    when <?($(1) <´..´ $@.below(1)::value..>)> do
-      ..|@map: $; // try another mapping
+    // A value-range is stored as an array of the base value (tagged by its type) followed by the length of the range (as a raw number)
+    // Comparison between different tagged types will normally error, but here we have specified that all numeric
+    // types can be compared without error (by ´..´), but different types will compare 'false'
 
+    // First a set of matchers that would match the first (arbitrarily selected) type of the mapping, if it is the source it will match the type of the input
+
+    // If the value-range starts beyond mapping-range
+    when <?($(1) <´..´ $@.below(1)::value..>)> do
+      ..|@map: $; // store range as still unmatched to try another mapping
+
+    // If the value range starts before the mapping range
     when <?($(1) <´..´ ..~$@.at-least(1)::value>)> do
       def value: $(1);
       def length: $(2);
+      // The distance from the base value to the start of the mapping-range
       def under-length: ($@.at-least(1)::value -> $::raw) - $value::raw;
+      // If the value-range ends before the mapping-range starts, store as still unmatched
       $length -> \(<..$under-length> $! \) -> ..|@map: [$value, $length];
+      // If the value range overlaps, store the part before as an unmapped range
       $length -> \(<$under-length~..> $! \) -> ..|@map: [$value, $under-length];
-      $length -> \(<$under-length~..> $! \) -> [$@.at-least(1)::value, $length - $under-length] -> # // match rest
+      // then send the part of the value-range that starts from the start of the mapping-range to the matchers to try to map it
+      $length -> \(<$under-length~..> $! \) -> [$@.at-least(1)::value, $length - $under-length] -> #
 
+    // If the value range starts inside the mapping range
     when <?($(1) <´..´ $@.at-least(1)::value..~$@.below(1)::value>)> do
       def length: $(2);
       def diff: $(1)::raw -($@.at-least(1)::value -> $::raw);
+      // The length of the value-range that the mapping can be applied to
       def valid-length: ($@.below(1)::value -> $::raw) - $(1)::raw;
+      // If the value-range is entirely in the mapping range, output the mapped range entirely
       $length -> \(<..$valid-length> $! \) -> [($@.at-least(2) increment $diff) -> $::value, $length] !
+      // if the value-range ends outside the mapping-range, output the range that can be mapped
       $length -> \(<$valid-length~..> $! \) -> [($@.at-least(2) increment $diff) -> $::value, $valid-length] !
+      // and then store the over-shooting part of the value-range as an unmapped value-range
       $length -> \(<$valid-length~..> $! \) -> ..|@map: [$@.below(1)::value, $length - $valid-length];
 
-    // reverse mapping
+    // Here come the set of matchers that exactly duplicate the ones above, but to match the second type of the mapping,
+    // in case that is actually the source type
+
     when <?($(1) <´..´ $@.below(2)::value..>)> do
       ..|@map: $; // try another mapping
 
@@ -102,38 +158,56 @@ operator (value-ranges map mapping)
       $length -> \(<$valid-length~..> $! \) -> ..|@map: [$@.below(2)::value, $length - $valid-length];
   end maybe-map
 
+  // All numbers that did not get mapped by a range need to be just re-tagged to the destination type
   templates re-tag
+    // Just use the first mapping range, we only care about the source and destination keys
     @: $mapping.ranges(1);
+    // Remove the length field to avoid trouble
     ^@.length -> !VOID
+    // Make an array of keyed values for anonymous access by number
     @: [$@...];
+    // Output the base number re-tagged though the matchers, followed by the length of the range
     [$(1) -> #, $(2)] !
-
+    
+    // In case the first mapping type is the source, the value can be compared with it
     when <´..´ ..$@(1)::value|$@(1)::value..> do
       def value: $::raw;
+      // Make a keyed value with the second key from the raw input value, then output just the value,
+      // which will then have been tagged as the key
       $@(2)::key -> key&{value: $value} -> $::value !
 
+    // Same as above, but checking whether the second mapping type is the source
     when <´..´ ..$@(2)::value|$@(2)::value..> do
       def value: $::raw;
       $@(1)::key -> key&{value: $value} -> $::value !
   end re-tag
 
+  // Store the input value-ranges in the state as still unmapped values
   @: $value-ranges;
+  // Output a list of value-ranges that could be mapped by one of the mapping-ranges,
+  // followed by the list of still unmapped value-ranges re-tagged with the destination tag
   [1..$mapping.ranges::length -> maybe-map, $@... -> re-tag] !
 end map
 
 templates apply-mappings
+  // Store the input as state
   @: $;
+  // For each mapping, update the state to be the mapped result of the previous state
   $almanac.mappings... -> @: ($@ map $);
+  // Output the resulting state
   $@ !
 end apply-mappings
 
 // part 1
+// Convert each seed value into a value-range of length 1, apply the mappings and select the minimum resulting base value
 [$almanac.seeds... -> [$, 1]] -> apply-mappings ... -> ..=Min&{by: :(1), select: :()}
 -> !OUT::write
 '
 ' -> !OUT::write
 
 // part 2
+// Convert the input seed values pairwise to value-ranges
 [1..$almanac.seeds::length:2 -> [$almanac.seeds($), $almanac.seeds($+1)::raw]]
+// apply the mappings and select the minimum resulting base value
 -> apply-mappings ... -> ..=Min&{by: :(1), select: :()}
 -> !OUT::write
