@@ -30,8 +30,7 @@ where:
   calculate-clumpiness("22225") < calculate-clumpiness("22222") is true
 end
 
-fun collate-cards(hand):
-  cards = "23456789TJQKA"
+fun collate-cards(hand, cards):
   collated = "abcdefghijklm"
   string-explode(hand).map(lam(c): string-char-at(collated, string-index-of(cards, c)) end)
     .foldr(string-append, "")
@@ -54,11 +53,11 @@ where:
     row: "KK677", 28
     row: "KTJJT", 220
     row: "QQQJA", 483
-  end, calculate-clumpiness, collate-cards) is 6440
+  end, calculate-clumpiness, collate-cards(_, "23456789TJQKA")) is 6440
 end
 
 fun part1():
-  winnings(hands, calculate-clumpiness, collate-cards)
+  winnings(hands, calculate-clumpiness, collate-cards(_, "23456789TJQKA"))
 end
 
 check: part1() is 246409899 end
@@ -95,15 +94,8 @@ where:
   calculate-clumpiness-joker("2222J") is 20
 end
 
-fun collate-cards-joker(hand):
-  cards = "J23456789TQKA"
-  collated = "abcdefghijklm"
-  string-explode(hand).map(lam(c): string-char-at(collated, string-index-of(cards, c)) end)
-    .foldr(string-append, "")
-end
-
 fun part2():
-  winnings(hands, calculate-clumpiness-joker, collate-cards-joker)
+  winnings(hands, calculate-clumpiness-joker, collate-cards(_, "J23456789TQKA"))
 end
 
 check: part2() is 244848487 end
