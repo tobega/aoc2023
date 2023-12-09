@@ -1,0 +1,38 @@
+composer sequence
+  [ <number>+ ]
+  rule number: <INT> (<WS>?)
+end sequence
+
+templates diff
+  def pairs: [$(first..~last), $(first~..last)];
+  [$pairs(1)::first..$pairs(1)::last -> $pairs(1..2; $) -> $(2) - $(1)] !
+end diff
+
+templates all-diffs&{select:}
+  @: [];
+  $ -> #
+  when <[<=0>* VOID]> do $@(first..last; select) !
+  otherwise |..@: $; $ -> diff -> #
+end all-diffs
+
+templates predict-next
+  @: 0;
+  $... -> @: $@ + $;
+  $@!
+end predict-next
+
+def input: [$IN::lines -> sequence];
+
+// part1
+$input... -> all-diffs&{select: :(last)} -> predict-next -> ..=Sum&{of: :()} -> !OUT::write
+'
+' -> !OUT::write
+
+templates predict-previous
+  @: 0;
+  $... -> @: $ - $@;
+  $@!
+end predict-previous
+
+// part2
+$input... -> all-diffs&{select: :(first)} -> predict-previous -> ..=Sum&{of: :()} -> !OUT::write
