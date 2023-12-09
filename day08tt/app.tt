@@ -1,0 +1,69 @@
+composer parse-node
+  { node: <node>, (<=' = ('>) left: <node>, (<=', '>) right: <node> (<=')'>)}
+  rule node: <node´'\w+'>
+end parse-node
+
+def instructions: [$IN::readline...];
+$IN::readline -> !VOID
+
+def map: {| $IN::lines -> parse-node |};
+
+source steps
+  @: 0;
+  {node: 'AAA'} -> #
+  $@!
+  when <~={node: 'ZZZ'}> do
+    @: $@ + 1;
+    ($map matching {|$|}) -> \(
+       when <?($instructions(($@steps - 1) mod $instructions::length + 1) <='L'>)> do $({node: §.left}) !
+       otherwise $({node: §.right}) !
+    \)... -> #
+end steps
+
+// part1
+$steps -> !OUT::write
+'
+' -> !OUT::write
+
+source ghost-steps // this and steps could be unified
+  def ghost-map: $map({node:,left:,right:, last: [§.node...] -> $(last)});
+  @: 0;
+  [($ghost-map matching {| {last: 'A'} |}) -> #] !
+  when <?($::count <1..>)> do
+    ($ matching {| {last: 'Z'} |})... -> $@ !
+    @: $@ + 1;
+    ($ notMatching {| {last: 'Z'} |}) -> \(
+       when <?($instructions(($@ghost-steps - 1) mod $instructions::length + 1) <='L'>)> do $({node: §.left}) !
+       otherwise $({node: §.right}) !
+    \) -> ($ghost-map matching $) -> #
+end ghost-steps
+
+operator (a gcd b)
+  $a mod $b -> #
+  when <=0> do $b !
+  otherwise ($b gcd $) !
+end gcd
+
+templates lcm-factors
+  sink check-factors
+    @: $;
+    $@lcm-factors -> \[i](
+      def factor: $;
+      def divisor: ($@check-factors gcd $factor);
+      $divisor -> \(<~=1> $! \) !
+      $factor ~/ $divisor -> \(<~=1> $! \) !
+      @check-factors: $@check-factors ~/ $divisor;
+    \) -> @lcm-factors: $;
+    $@ -> \(<~=1> $! \) -> ..|@lcm-factors: $;
+  end check-factors
+  @:[$(1)];
+  $(2..last)... -> !check-factors
+  $@!
+end lcm-factors
+
+// part2, assuming each seed goes into a regular loop
+$ghost-steps  -> lcm-factors -> \(
+  @: 1;
+  $... -> @: $@ * $;
+  $@!
+\) -> !OUT::write
