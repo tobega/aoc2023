@@ -105,19 +105,18 @@ fun part2():
   fun count-inside(a):
     a.to-list-now().foldl(lam(l, s):
       if l == empty:
-        if s.{0} and s.{1}:
-          {s.{0}; s.{1}; s.{2} + 1}
+        if s.{0}:
+          {s.{0}; s.{1} + 1}
         else:
           s
         end
       else if not(l == empty):
         {
           if l.member('N'): not(s.{0}) else: s.{0} end;
-          if l.member('S'): not(s.{1}) else: s.{1} end;
-          s.{2}
+          s.{1}
         }
       end
-    end, {false; false; 0}).{2}
+    end, {false; 0}).{1}
   end
   mark-loop(found-loop.{1}).to-list-now().map(count-inside).foldl(_ + _, 0)
 end
