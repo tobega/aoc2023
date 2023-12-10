@@ -1,0 +1,92 @@
+data direction #{N, S, E, W}
+
+templates symbol-to-pipe
+  <='|'> [direction#N, direction#S] !
+  <='-'> [direction#E, direction#W] !
+  <='L'> [direction#N, direction#E] !
+  <='J'> [direction#N, direction#W] !
+  <='7'> [direction#W, direction#S] !
+  <='F'> [direction#E, direction#S] !
+  <='.'> [] !
+  <='S'> [direction#N, direction#S, direction#E, direction#W] !
+end symbol-to-pipe
+
+composer parse-pipes
+  0"x":[<symbol>+]
+  rule symbol: <'.'> -> symbol-to-pipe
+end parse-pipes
+
+templates pad&{with:}
+  @: $;
+  $@::first..$@::last -> |..@($): $with;
+  $@::first..$@::last -> ..|@($): $with;
+  $@(first)::first:[1..$@(first)::length+2 -> $with] -> |..@: $;
+  $@(first)::first:[1..$@(first)::length+2 -> $with] -> ..|@: $;
+  $@!
+end pad
+
+def grid: 0"y":[$IN::lines -> parse-pipes] -> pad&{with: []};
+def pos-S: $grid -> \[y; x](<[](4)> {x: $x, y: $y}!\)... ...;
+
+data squirrel <{x: <x>, y: <y>, start: <direction#>, edge: <=0|direction#>}>
+
+// move will sneakily just do all "other" directions for S and add start if it wasn't present
+templates move
+  def sq: $;
+  $grid($sq.y; $sq.x)... -> \(<~ ´edge´ =$sq.edge> $!\) -> #
+
+  <=direction#N> {start: $, $sq..., y: $sq.y - 1"y", edge: direction#S}!
+  <=direction#S> {start: $, $sq..., y: $sq.y + 1"y", edge: direction#N}!
+  <=direction#E> {start: $, $sq..., x: $sq.x + 1"x", edge: direction#W}!
+  <=direction#W> {start: $, $sq..., x: $sq.x - 1"x", edge: direction#E}!
+end move
+
+templates if-valid
+  def sq: $;
+  $grid($sq.y; $sq.x)... -> \(<´edge´ =$sq.edge> $!\) -> $sq!
+end if-valid  
+
+source find-loop
+  @: 1;
+  [{$pos-S..., edge: 0} -> move -> if-valid] -> #
+  when <?({| $({x:, y:})... |} -> $::count <..~$::length>)> do
+    {| $... |} -> $(collect {starts: List&{of: :(start:)}} by $({x:, y:}))...
+    -> \(<{starts: <[](2)>}> $! \) -> {moves: $@, far-point: $} !
+  otherwise
+    @: $@ + 1;
+    [$... -> move -> if-valid] -> #
+end find-loop
+
+def found-loop: $find-loop;
+
+// part 1
+$found-loop -> !OUT::write
+'
+' -> !OUT::write
+
+source mark-loop
+  @: 0"y":[$grid... -> 0"x":[$... -> []]];
+  @($pos-S.y; $pos-S.x): $found-loop.far-point.starts;
+  {$pos-S..., edge: 0} -> move -> if-valid
+    -> \(<{start: <=$found-loop.far-point.starts(first)>}> $!\) -> #
+  
+  when <{x: <=$pos-S.x>, y: <=$pos-S.y>}> do
+    $@ !
+  otherwise
+    @($.y; $.x): $grid($.y; $.x);
+    $ -> move -> if-valid -> #
+end mark-loop
+
+templates count-inside
+  @: {norths: 0"1", inside: 0"1"};
+  $... -> #
+  $@.inside !
+
+  when <[](0)?($@.norths <=1"1">)> do
+    @.inside: $@.inside + 1"1";
+  when <[<=direction#N>]> do
+    @.norths: ($@.norths + 1"1") mod 2;
+end count-inside
+
+// part 2
+$mark-loop ... -> count-inside -> ..=Sum&{of: :()} -> !OUT::write
