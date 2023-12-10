@@ -1,5 +1,18 @@
 provide *
 
+test = [list:
+".F----7F7F7F7F-7....",
+".|F--7||||||||FJ....",
+".||.FJ||||||||L7....",
+"FJL7L7LJLJ||LJ.L-7..",
+"L--J.L7...LJS7F-7L7.",
+"....F-J..F7FJ|L7L7L7",
+"....L7.F7||L7|.L7L7|",
+".....|FJLJ|FJ|F7|.LJ",
+"....FJL-7.||.||||...",
+"....L---J.LJ.LJLJ..."
+]
+
 raw = [list: "F-F-JJF7.F7.F-LJ7-|77.L|.FJ7--7LFL|-|F-.|--7.F7-F-.F|-FL7.FF7.F77-FLLJFLF--.FL--FF--7..FJ-L-LL-J..F-J77FF|-FF77FL|-|7J-7--7J-L77.FL.FL|-F7F-",
 "LJ|.L-|-FF|J|L|||.L7J.FJF7-77.|7||L7F7-F77-|7|J.-.F-7F|L---L77..--|FL.F|L7FFF.FFF7..L77F.F|7.J7L7-JF.JJF-7.F--L7.7-L7..|L--7.L-.L|FFL-JL|F-J",
 "L.|FL7|F|||LJFL-LJ-JJF7JF|-7-FJF7J-L.7.F|-7L7||L.FJFJ7J7L7.LFL-LJ.|F|--|.F7F7-FFJL7--LFJFLLF.L||L7|.7L-|7F7F|||.FF7LL7F7J.|-F7-7J.L.|7L.-L-|",
