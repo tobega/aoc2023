@@ -1,0 +1,87 @@
+composer parse-hand
+  { hand: <'\w+'>, (<WS>) bid: <INT"d"> }
+end parse-hand
+
+def hands: {| [$IN::lines] -> \[i]({id: $i, $ -> parse-hand} ! \) ... |};
+
+def cards: {| $hands... -> {id: $.id, by [$.hand...] -> \[i]({card-no: $i, card: $}!\)...} |}
+  -> $(collect {reps: Count} by $({id:, card:}));
+
+processor CalculateClumpiness
+  @: [];
+  sink accumulate
+    ..|@CalculateClumpiness: $.reps::raw;
+  end accumulate
+  source result
+    @: 0;
+    $@CalculateClumpiness... -> @: $@ + $ * ($ - 1);
+    $@ !
+  end result
+end CalculateClumpiness
+
+def clumpiness: $cards(collect {clumpiness: CalculateClumpiness} by $cards({id:}));
+
+def normal-order: ['23456789TJQKA'...];
+
+templates collate&{card-order:}
+  @: 0;
+  $... -> \(def c: $; $card-order -> \[i](<=$c> $i!\)...!\) -> @: $@ * $card-order::length + $;
+  $@!
+end collate
+
+def collations: $hands({id:, collation: §.hand -> collate&{card-order: $normal-order}});
+
+templates bubblesort&{compare:}
+  templates bubble
+    @: 1;
+    1..$-1 -> #
+    $@ !
+    when <?(($@bubblesort($+1) compare $@bubblesort($)) <..~0>)> do
+      @: $;
+      def temp: $@bubblesort($@);
+      @bubblesort($@): $@bubblesort($@+1);
+      @bubblesort($@+1): $temp;
+  end bubble
+
+  @: $;
+  $::length -> #
+  $@ !
+
+  when <2..> do
+    $ -> bubble -> #
+end bubblesort
+
+operator (a by-clumpiness-collation b)
+  $a -> #
+  when <{clumpiness: <..~$b.clumpiness>}> do -1 !
+  when <{clumpiness: <$b.clumpiness~..>}> do 1 !
+  when <{collation: <..~$b.collation>}> do -1 !
+  when <{collation: <$b.collation~..>}> do 1 !
+  otherwise 0 !
+end by-clumpiness-collation
+
+// part 1
+[(($hands join $clumpiness) join $collations) ... ] -> bubblesort&{compare: by-clumpiness-collation}
+-> \[i]($i * $.bid ! \)... -> ..=Sum&{of: :()} -> !OUT::write
+'
+' -> !OUT::write
+
+def jokers: ($cards matching {|{card: 'J'}|});
+def non-jokers: ($cards notMatching {|{card: 'J'}|});
+
+def biggest-clumps: $non-jokers
+  -> $(collect {card: Max&{by: :(reps:), select: :(card:)}} by $({id:}));
+def joker-clumpiness: (($biggest-clumps join $cards) join $jokers({id:, jreps: §.reps}))
+  -> $({id:, card:, reps: §.reps + §.jreps}) // augment biggest clump by jokers
+  -> ($ union ($non-jokers notMatching $biggest-clumps)) // non-biggest clumps
+  -> ($ union (($biggest-clumps join $cards) notMatching $jokers({id:}))) // biggest-clumps in non-joker hands
+  -> ($ union ($jokers notMatching $({id:}))) // hands with only jokers
+  -> $(collect {clumpiness: CalculateClumpiness} by $({id:}));
+
+def joker-order: ['J23456789TQKA'...];
+
+def joker-collations: $hands({id:, collation: §.hand -> collate&{card-order: $joker-order}});
+
+// part 2
+[(($hands join $joker-clumpiness) join $joker-collations) ... ] -> bubblesort&{compare: by-clumpiness-collation}
+-> \[i]($i * $.bid ! \)... -> ..=Sum&{of: :()} -> !OUT::write
