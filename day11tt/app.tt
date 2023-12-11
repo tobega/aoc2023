@@ -1,11 +1,19 @@
 def input: [$IN::lines -> [$...]];
 
-templates transpose-expand
+templates find-expansion-points
+  def in: $;
+  { ys: $ -> \[y](<~[<='#'>]> ($y)"1" !\),
+    xs: $(first) -> \[x](<?($in(first..last; $x) <~[<='#'>]>)> ($x)"1" !\)
+  } !
+end find-expansion-points
+
+templates expand&{vs:, by:}
+  def in: $;
   @: $;
-  [ $(first)::first..$(first)::last -> $@(first..last; $) -> #] !
-  when <~[<='#'>]> do $! $!
-  otherwise $!
-end transpose-expand
+  $vs... -> #
+  $@!
+  when <..~$in> do @: $@ + $by;
+end expand
 
 templates create-pairs
   @: $;
@@ -20,6 +28,18 @@ templates manhattan-distance
   ($.b.x - $.a.x -> abs) + ($.b.y - $.a.y -> abs) !
 end manhattan-distance
 
+def expansion-points: $input -> find-expansion-points;
+
 // part 1
-$input -> transpose-expand -> transpose-expand -> [$ -> \[y; x](<='#'> {x: ($x)"1", y: ($y)"1"} !\)... ...]
+$input -> [$ -> \[y; x](<='#'> {x: ($x)"1", y: ($y)"1"} !\)... ...
+  -> {x: $.x -> expand&{vs: $expansion-points.xs, by: 1"1"},
+      y: $.y -> expand&{vs: $expansion-points.ys, by: 1"1"}
+  }]
+-> create-pairs -> manhattan-distance -> ..=Sum&{of: :()} -> !OUT::write
+
+// part 2
+$input -> [$ -> \[y; x](<='#'> {x: ($x)"1", y: ($y)"1"} !\)... ...
+  -> {x: $.x -> expand&{vs: $expansion-points.xs, by: 999999"1"},
+      y: $.y -> expand&{vs: $expansion-points.ys, by: 999999"1"}
+  }]
 -> create-pairs -> manhattan-distance -> ..=Sum&{of: :()} -> !OUT::write
