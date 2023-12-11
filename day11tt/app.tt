@@ -1,0 +1,25 @@
+def input: [$IN::lines -> [$...]];
+
+templates transpose-expand
+  @: $;
+  [ $(first)::first..$(first)::last -> $@(first..last; $) -> #] !
+  when <~[<='#'>]> do $! $!
+  otherwise $!
+end transpose-expand
+
+templates create-pairs
+  @: $;
+  $::first..$::last -> {a: $@($), by $@($~..last)... -> (b:$)}!
+end create-pairs
+
+templates manhattan-distance
+  templates abs
+    <?($::raw <..~0>)> -$!
+    otherwise $!
+  end abs
+  ($.b.x - $.a.x -> abs) + ($.b.y - $.a.y -> abs) !
+end manhattan-distance
+
+// part 1
+$input -> transpose-expand -> transpose-expand -> [$ -> \[y; x](<='#'> {x: ($x)"1", y: ($y)"1"} !\)... ...]
+-> create-pairs -> manhattan-distance -> ..=Sum&{of: :()} -> !OUT::write
