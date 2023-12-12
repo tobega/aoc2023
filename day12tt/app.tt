@@ -1,0 +1,51 @@
+composer parse-record
+  {row: [<='#'|='.'|='?'>+], (<WS>) damaged: [<damaged>+]}
+  rule damaged: <INT> (<=','>?)
+end parse-record
+
+def records: [$IN::lines -> parse-record];
+
+templates find-arrangements
+  @: {arrangements: 0"1", stack: []};
+  {row: [$.row..., '.'], damaged: $.damaged, matching: '.'} -> #
+  $@.arrangements!
+
+  when <{matching: <='#'>, row: <[](0)|?($(first) <='.'|='?'>)>, damaged: <[](1..)?($(1) <=0>)>}> do
+    {matching: '.', row: $.row(first~..last), damaged: $.damaged(first~..last)} -> #
+
+  when <{matching: <='#'>, damaged: <[](0)|?($(1) <=0>)>}> do
+    ^@.stack(first..first)... -> #
+
+  when <{row: <[<='.'|='?'>* VOID]>, damaged: <[](0)>}> do
+    @.arrangements: $@.arrangements + 1"1";
+    ^@.stack(first..first)... -> #
+
+  when <{damaged: <[](0)>}|{row: <[](0)>, damaged: <[](1..)>}> do
+    ^@.stack(first..first)... -> #
+
+  when <{matching: <='#'>, row: <[](1..)?($(first) <='?'|='#'>)>, damaged: <?($(1) <1..>)>}> do
+    {matching: '#', row: $.row(first~..last), damaged: [$.damaged(1) - 1, $.damaged(first~..last)...]} -> #
+
+  when <{matching: <='#'>, row: <[](1..)?($(first) <='.'>)>, damaged: <?($(1) <1..>)>}> do
+    ^@.stack(first..first)... -> #
+
+  when <{matching: <='.'>, row: <?($(first) <='?'>)>}> do
+    |..@.stack: {$..., row: $.row(first~..last)};
+    {matching: '#', row: ['#', $.row(first~..last)...], damaged: $.damaged} -> #
+
+  when <{matching: <='.'>, row: <?($(first) <='.'>)>}> do
+    {$..., row: $.row(first~..last)} -> #
+
+  when <{matching: <='.'>, row: <?($(first) <='#'>)>, damaged: <[](0)>}> do
+    ^@.stack(first..first)... -> #
+
+  when <{matching: <='.'>, row: <?($(first) <='#'>)>}> do
+    {matching: '#', row: $.row(first~..last), damaged: [$.damaged(1) - 1, $.damaged(first~..last)...]} -> #
+
+  otherwise 'wtf'!
+end find-arrangements
+
+// part 1
+$records... -> find-arrangements -> ..=Sum&{of: :()} -> !OUT::write
+'
+' -> !OUT::write
