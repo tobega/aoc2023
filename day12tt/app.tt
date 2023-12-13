@@ -6,44 +6,49 @@ end parse-record
 def records: [$IN::lines -> parse-record];
 
 templates find-arrangements
-  @: {arrangements: 0"1", stack: []};
-  {$..., matching: '.', min-length: $.damaged::length - 1 + ($.damaged... -> ..=Sum&{of: :()})} -> #
+  def in: $;
+  @: {arrangements: 0"1",
+    cache: 0:[0:[1"1", 1..$in.damaged::length -> 0"1"],
+      1..$in.row::length + 1 -> 0:[0..$in.damaged::length -> -1"1"]
+    ]};
+  {$in..., row: [$.row..., '.']} -> #
   $@.arrangements!
 
-  when <{row: <[](..~$.min-length::raw)>}> do
-    ^@.stack(first..first)... -> #
-
-  when <{matching: <='#'>, row: <[](0)|?($(first) <='.'|='?'>)>, damaged: <[](1..)?($(1) <=0>)>}> do
-    {matching: '.', row: $.row(first~..last), damaged: $.damaged(first~..last), min-length: $.min-length::raw - 1} -> #
-
-  when <{matching: <='#'>, damaged: <[](0)|?($(1) <=0>)>}> do
-    ^@.stack(first..first)... -> #
+  when <?($@.cache($.row::length; $.damaged::length) <0"1"..>)> do
+    $@.cache($.row::length; $.damaged::length) !
 
   when <{row: <[<='.'|='?'>* VOID]>, damaged: <[](0)>}> do
-    @.arrangements: $@.arrangements + 1"1";
-    ^@.stack(first..first)... -> #
+    @.cache($.row::length; $.damaged::length): 1"1";
+    1"1" !
 
-  when <{damaged: <[](0)>}|{row: <[](0)>, damaged: <[](1..)>}> do
-    ^@.stack(first..first)... -> #
+  when <{damaged: <[](0)|[<$.row::length..>]>}> do
+    @.cache($.row::length; $.damaged::length): 0"1";
+    0"1" !
 
-  when <{matching: <='#'>, row: <[](1..)?($(first) <='?'|='#'>)>, damaged: <?($(1) <1..>)>}> do
-    {matching: '#', row: $.row(first~..last), damaged: [$.damaged(1) - 1, $.damaged(first~..last)...], min-length: $.min-length::raw - 1} -> #
+  when <{row: <?($(1) <='.'>)>}> do
+    def result: {$..., row: $.row(first~..last)} -> #;
+    @.cache($.row::length; $.damaged::length): $result;
+    $result !
 
-  when <{matching: <='#'>, row: <[](1..)?($(first) <='.'>)>, damaged: <?($(1) <1..>)>}> do
-    ^@.stack(first..first)... -> #
+  when <{row: <?($(1) <='#'>)>} ?($.row(1..$.damaged(1)) <[<='#'|='?'>* VOID]>) ?($.row($.damaged(1)+1) <='.'|='?'>)> do
+    def result: {damaged: $.damaged(first~..last), row: $.row($.damaged(1)+1~..last)} -> #;
+    @.cache($.row::length; $.damaged::length): $result;
+    $result !
 
-  when <{matching: <='.'>, row: <?($(first) <='?'>)>}> do
-    |..@.stack: {$..., row: $.row(first~..last)};
-    {$..., matching: '#', row: ['#', $.row(first~..last)...]} -> #
+  when <{row: <?($(1) <='#'>)>}> do
+    @.cache($.row::length; $.damaged::length): 0"1";
+    0"1" !
 
-  when <{matching: <='.'>, row: <?($(first) <='.'>)>}> do
-    {$..., row: $.row(first~..last)} -> #
+  when <{row: <?($(1) <='?'>)>} ?($.row(1..$.damaged(1)) <[<='#'|='?'>* VOID]>) ?($.row($.damaged(1)+1) <='.'|='?'>)> do
+    def hash: {damaged: $.damaged(first~..last), row: $.row($.damaged(1)+1~..last)} -> #;
+    def dot: {$..., row: $.row(first~..last)} -> #;
+    @.cache($.row::length; $.damaged::length): $hash + $dot;
+    $hash + $dot !
 
-  when <{matching: <='.'>, row: <?($(first) <='#'>)>, damaged: <[](0)>}> do
-    ^@.stack(first..first)... -> #
-
-  when <{matching: <='.'>, row: <?($(first) <='#'>)>}> do
-    {matching: '#', row: $.row(first~..last), damaged: [$.damaged(1) - 1, $.damaged(first~..last)...], min-length: $.min-length::raw - 1} -> #
+  when <{row: <?($(1) <='?'>)>}> do
+    def result: {$..., row: $.row(first~..last)} -> #;
+    @.cache($.row::length; $.damaged::length): $result;
+    $result !
 
   otherwise 'wtf'!
 end find-arrangements
