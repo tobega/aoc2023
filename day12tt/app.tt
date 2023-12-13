@@ -7,11 +7,14 @@ def records: [$IN::lines -> parse-record];
 
 templates find-arrangements
   @: {arrangements: 0"1", stack: []};
-  {row: [$.row..., '.'], damaged: $.damaged, matching: '.'} -> #
+  {$..., matching: '.', min-length: $.damaged::length - 1 + ($.damaged... -> ..=Sum&{of: :()})} -> #
   $@.arrangements!
 
+  when <{row: <[](..~$.min-length::raw)>}> do
+    ^@.stack(first..first)... -> #
+
   when <{matching: <='#'>, row: <[](0)|?($(first) <='.'|='?'>)>, damaged: <[](1..)?($(1) <=0>)>}> do
-    {matching: '.', row: $.row(first~..last), damaged: $.damaged(first~..last)} -> #
+    {matching: '.', row: $.row(first~..last), damaged: $.damaged(first~..last), min-length: $.min-length::raw - 1} -> #
 
   when <{matching: <='#'>, damaged: <[](0)|?($(1) <=0>)>}> do
     ^@.stack(first..first)... -> #
@@ -24,14 +27,14 @@ templates find-arrangements
     ^@.stack(first..first)... -> #
 
   when <{matching: <='#'>, row: <[](1..)?($(first) <='?'|='#'>)>, damaged: <?($(1) <1..>)>}> do
-    {matching: '#', row: $.row(first~..last), damaged: [$.damaged(1) - 1, $.damaged(first~..last)...]} -> #
+    {matching: '#', row: $.row(first~..last), damaged: [$.damaged(1) - 1, $.damaged(first~..last)...], min-length: $.min-length::raw - 1} -> #
 
   when <{matching: <='#'>, row: <[](1..)?($(first) <='.'>)>, damaged: <?($(1) <1..>)>}> do
     ^@.stack(first..first)... -> #
 
   when <{matching: <='.'>, row: <?($(first) <='?'>)>}> do
     |..@.stack: {$..., row: $.row(first~..last)};
-    {matching: '#', row: ['#', $.row(first~..last)...], damaged: $.damaged} -> #
+    {$..., matching: '#', row: ['#', $.row(first~..last)...]} -> #
 
   when <{matching: <='.'>, row: <?($(first) <='.'>)>}> do
     {$..., row: $.row(first~..last)} -> #
@@ -40,7 +43,7 @@ templates find-arrangements
     ^@.stack(first..first)... -> #
 
   when <{matching: <='.'>, row: <?($(first) <='#'>)>}> do
-    {matching: '#', row: $.row(first~..last), damaged: [$.damaged(1) - 1, $.damaged(first~..last)...]} -> #
+    {matching: '#', row: $.row(first~..last), damaged: [$.damaged(1) - 1, $.damaged(first~..last)...], min-length: $.min-length::raw - 1} -> #
 
   otherwise 'wtf'!
 end find-arrangements
@@ -49,3 +52,12 @@ end find-arrangements
 $records... -> find-arrangements -> ..=Sum&{of: :()} -> !OUT::write
 '
 ' -> !OUT::write
+
+templates unfold
+  def folded: $;
+  {row: [$folded.row..., 1..4 -> \('?'! $folded.row...! \)],
+   damaged: [1..5 -> $folded.damaged...]} !
+end unfold
+
+// part 2
+$records... -> unfold -> find-arrangements -> ..=Sum&{of: :()} -> !OUT::write
