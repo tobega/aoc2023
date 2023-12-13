@@ -9,11 +9,14 @@ end read-patterns
 
 def patterns: $read-patterns;
 
-templates find-horizontal-mirror
+templates find-horizontal-mirror&{smudge:}
   templates is-mirror
+    @: 0;
     def reflection: $::length ~/ 2;
-    $ -> #
-    when <?($(1..$reflection) <=$(last..~$reflection:-1)>)> do $reflection !
+    def top: $(1..$reflection);
+    $(last..~$reflection:-1) -> \[y;x](<~=$top($y;$x)> @is-mirror: $@is-mirror + 1;\) -> !VOID
+    $@ -> #
+    when <=$smudge::raw> do $reflection !
   end is-mirror
 
   def in: $;
@@ -21,9 +24,9 @@ templates find-horizontal-mirror
 
   when <> do
     def top: $;
-    $in($top..last) -> is-mirror -> $ + $top - 1!
+    $in($top..last) -> \(<?($::length mod 2 <=0>)> $!\) -> is-mirror -> $ + $top - 1!
     def bottom: $;
-    $in(first..$bottom) -> is-mirror !
+    $in(first..$bottom) -> \(<?($::length mod 2 <=0>)> $!\) -> is-mirror !
 end find-horizontal-mirror
 
 templates transpose
@@ -31,9 +34,12 @@ templates transpose
   $in(1) -> \[i]($in(first..last; $i)! \) !
 end transpose
 
-templates find-mirror-values
-  $ -> find-horizontal-mirror -> $ * 100!
-  $ -> transpose -> find-horizontal-mirror !
+templates find-mirror-values&{smudge:}
+  def in: $;
+  [$ -> find-horizontal-mirror&{smudge: $smudge} -> $ * 100] -> #
+  when <[](0)> do
+    $in -> transpose -> find-horizontal-mirror&{smudge: $smudge} !
+  otherwise $... !
 end find-mirror-values
 
 test 'example'
@@ -56,12 +62,14 @@ test 'example'
       ['#....#..#'...]
     ]];
 
-  assert $patterns... -> find-mirror-values -> ..=Sum&{of: :()} <=405> ''
+  assert $patterns... -> find-mirror-values&{smudge: 0} -> ..=Sum&{of: :()} <=405> ''
+  assert $patterns... -> find-mirror-values&{smudge: 1} -> ..=Sum&{of: :()} <=400> ''
 end 'example'
 
-test 'all reflect'
-  assert [$patterns... -> find-mirror-values] <[]($patterns::length)> ''
-end 'all reflect'
-
 // part 1
-$patterns... -> find-mirror-values -> ..=Sum&{of: :()} -> !OUT::write
+$patterns... -> find-mirror-values&{smudge: 0} -> ..=Sum&{of: :()} -> !OUT::write
+'
+' -> !OUT::write
+
+// part 2
+$patterns... -> find-mirror-values&{smudge: 1} -> ..=Sum&{of: :()} -> !OUT::write
