@@ -1,0 +1,67 @@
+source read-patterns
+  @:[[]];
+  $IN::readline -> #
+  $@!
+
+  when <=''> do ..|@: []; $IN::readline -> #
+  otherwise ..|@(last): [$...]; $IN::readline -> #
+end read-patterns
+
+def patterns: $read-patterns;
+
+templates find-horizontal-mirror
+  templates is-mirror
+    def reflection: $::length ~/ 2;
+    $ -> #
+    when <?($(1..$reflection) <=$(last..~$reflection:-1)>)> do $reflection !
+  end is-mirror
+
+  def in: $;
+  1..$in::length -> #
+
+  when <> do
+    def top: $;
+    $in($top..last) -> is-mirror -> $ + $top - 1!
+    def bottom: $;
+    $in(first..$bottom) -> is-mirror !
+end find-horizontal-mirror
+
+templates transpose
+  def in: $;
+  $in(1) -> \[i]($in(first..last; $i)! \) !
+end transpose
+
+templates find-mirror-values
+  $ -> find-horizontal-mirror -> $ * 100!
+  $ -> transpose -> find-horizontal-mirror !
+end find-mirror-values
+
+test 'example'
+  def patterns: [
+    [
+      ['#.##..##.'...],
+      ['..#.##.#.'...],
+      ['##......#'...],
+      ['##......#'...],
+      ['..#.##.#.'...],
+      ['..##..##.'...],
+      ['#.#.##.#.'...]
+    ],[
+      ['#...##..#'...],
+      ['#....#..#'...],
+      ['..##..###'...],
+      ['#####.##.'...],
+      ['#####.##.'...],
+      ['..##..###'...],
+      ['#....#..#'...]
+    ]];
+
+  assert $patterns... -> find-mirror-values -> ..=Sum&{of: :()} <=405> ''
+end 'example'
+
+test 'all reflect'
+  assert [$patterns... -> find-mirror-values] <[]($patterns::length)> ''
+end 'all reflect'
+
+// part 1
+$patterns... -> find-mirror-values -> ..=Sum&{of: :()} -> !OUT::write
