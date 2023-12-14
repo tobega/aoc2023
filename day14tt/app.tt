@@ -1,0 +1,25 @@
+def mirrors: [$IN::lines -> [$...]];
+
+templates roll
+  @:{round: 0"r", empty: 0"e"};
+  [$... -> #, 1"r"..$@.round -> 'O', 1"e"..$@.empty -> '.'] !
+  when <='.'> do @.empty: $@.empty + 1"e";
+  when <='O'> do @.round: $@.round + 1"r";
+  when <='#'> do
+    1"r"..$@.round -> 'O'!
+    1"e"..$@.empty -> '.'!
+    '#' !
+    @:{round: 0"r", empty: 0"e"};
+end roll
+
+templates transpose
+  def in: $;
+  $(1) -> \[i]($in(first..last;$i)! \) !
+end transpose
+
+// part 1
+$mirrors -> transpose ... -> roll -> $(last..first:-1) -> \[i](
+  when <='O'> do $i!
+\) ... -> ..=Sum&{of: :()} -> !OUT::write
+
+  
