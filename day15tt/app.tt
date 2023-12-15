@@ -1,0 +1,15 @@
+composer parse-instructions
+  [<instruction>+]
+  rule instruction: <~=','> (<=','>?)
+end parse-instructions
+
+def instructions: $IN::readline -> parse-instructions;
+
+templates HASH
+  @: 0;
+  $::asCodePoints ... -> @: (($ + $@) * 17) mod 256;
+  $@!
+end HASH
+
+// part1
+$instructions... -> HASH -> ..=Sum&{of: :()} -> !OUT::write
