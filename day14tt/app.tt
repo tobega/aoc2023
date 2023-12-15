@@ -21,5 +21,80 @@ end transpose
 $mirrors -> transpose ... -> roll -> $(last..first:-1) -> \[i](
   when <='O'> do $i!
 \) ... -> ..=Sum&{of: :()} -> !OUT::write
+'
+' -> !OUT::write
 
-  
+templates find-cycle-start
+  def subject: $;
+  // Hoping there will not be too many different values so just log them all instead
+  // of having a fancy cycle-finding algorithm
+  $subject::step -> @: $:[$subject::steps];
+  $subject::step -> #
+  when <$@::first..$@::last ?($@($) <0..>)> do
+    $@($) !
+  when <..~$@::first> do
+    @: $:[$..~$@::first -> -1, $@...];
+    $ -> #
+  when <$@::last~..> do
+     $@::last~..$ -> -1 -> ..|@:$;
+    $ -> #
+  otherwise
+    @($): $subject::steps;
+    $subject::step -> #
+end find-cycle-start
+
+processor Spinner
+  @: $;
+  sink roll-north
+    [$@Spinner(1) -> \[i]($@Spinner(first..last; $i) ! \)... -> roll]
+    -> \[i](@Spinner(first..last; $i): $...; \) -> !VOID
+  end roll-north
+  sink roll-south
+    [$@Spinner(1) -> \[i]($@Spinner(last..first:-1; $i) ! \)... -> roll]
+    -> \[i](@Spinner(last..first:-1; $i): $...; \) -> !VOID
+  end roll-south
+  sink roll-east
+    [$@Spinner -> \[i]($@Spinner($i; last..first:-1) ! \)... -> roll]
+    -> \[i](@Spinner($i; last..first:-1): $...; \) -> !VOID
+  end roll-east
+  sink roll-west
+    [$@Spinner -> \[i]($@Spinner($i; first..last) ! \)... -> roll]
+    -> \[i](@Spinner($i; first..last): $...; \) -> !VOID
+  end roll-west
+
+  source north-load
+    $@Spinner(1) -> \[i]($@Spinner(last..first:-1; $i) ! \)...
+    ->  \[i](
+      when <='O'> do $i!
+    \) ... -> ..=Sum&{of: :()} !
+  end north-load
+
+  source state-hash
+    $@Spinner -> \[i;j](<='O'> $i * $j! \) ... ... -> ..=Sum&{of: :()} !
+  end state-hash
+end Spinner
+
+processor FindCycleSpinnerAdapter
+  def spinner: $;
+  @FindCycleSpinnerAdapter: 0;
+  source step
+    @FindCycleSpinnerAdapter: $@FindCycleSpinnerAdapter + 1;
+    1 -> !spinner::roll-north
+    1 -> !spinner::roll-west
+    1 -> !spinner::roll-south
+    1 -> !spinner::roll-east
+    $spinner::state-hash !
+  end step
+
+  source steps
+    $@FindCycleSpinnerAdapter !
+  end steps
+end FindCycleSpinnerAdapter
+
+// part 2
+def spinner: $mirrors -> Spinner;
+def adapter: $spinner -> FindCycleSpinnerAdapter;
+def cycle-start: $adapter -> find-cycle-start;
+def cycle-length: $adapter::steps - $cycle-start;
+(1000000000 - $cycle-start) mod $cycle-length -> 1..$ -> adapter::step -> !VOID
+$spinner::north-load -> !OUT::write
