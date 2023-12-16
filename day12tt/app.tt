@@ -30,7 +30,7 @@ templates find-arrangements
     @.cache($.row::length; $.damaged::length): $result;
     $result !
 
-  when <{row: <?($(1) <='#'>)>} ?($.row(1..$.damaged(1)) <[<='#'|='?'>* VOID]>) ?($.row($.damaged(1)+1) <='.'|='?'>)> do
+  when <{row: <[(<='#'|='?'>=$.damaged(1):<='.'|='?'>:<>*) VOID] ?($(1) <='#'>)>}> do
     def result: {damaged: $.damaged(first~..last), row: $.row($.damaged(1)+1~..last)} -> #;
     @.cache($.row::length; $.damaged::length): $result;
     $result !
@@ -39,7 +39,7 @@ templates find-arrangements
     @.cache($.row::length; $.damaged::length): 0"1";
     0"1" !
 
-  when <{row: <?($(1) <='?'>)>} ?($.row(1..$.damaged(1)) <[<='#'|='?'>* VOID]>) ?($.row($.damaged(1)+1) <='.'|='?'>)> do
+  when <{row: <[(<='#'|='?'>=$.damaged(1):<='.'|='?'>:<>*) VOID] ?($(1) <='?'>)>}> do
     def hash: {damaged: $.damaged(first~..last), row: $.row($.damaged(1)+1~..last)} -> #;
     def dot: {$..., row: $.row(first~..last)} -> #;
     @.cache($.row::length; $.damaged::length): $hash + $dot;
