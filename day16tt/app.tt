@@ -1,0 +1,53 @@
+def cavern: 1"y":[$IN::lines -> 1"x":[$...]];
+
+source energize&{start:}
+  @: $cavern::first:[$cavern::first..$cavern::last -> $cavern(first)::first:[$cavern(first)::first..$cavern(first)::last -> []]];
+  $start -> #
+  $@... ... -> \(<[](1..)> 1 ! \) -> ..=Sum&{of: :()} !
+
+  when <{y: <..~$cavern::first>}|{y: <$cavern::last~..>}|{x: <..~$cavern(first)::first>}|{x: <$cavern(first)::last~..>}> do
+    !VOID
+
+  when <?($@($.y;$.x) <[<=$.ray>]>)> do
+    !VOID
+
+  otherwise
+    def photon: $;
+    ..|@($.y;$.x): $.ray;
+    '$photon.ray;$cavern($.y;$.x);' -> \(
+      <='>.'|='>-'> '>' !
+      <='>/'> '^' !
+      <='>\'> 'v' !
+      <='>|'> '^' ! 'v' !
+
+      <='<.'|='<-'> '<' !
+      <='<\'> '^' !
+      <='</'> 'v' !
+      <='<|'> '^' ! 'v' !
+
+      <='^.'|='^|'> '^' !
+      <='^\'> '<' !
+      <='^/'> '>' !
+      <='^-'> '<' ! '>' !
+
+      <='v.'|='v|'> 'v' !
+      <='v\'> '>' !
+      <='v/'> '<' !
+      <='v-'> '<' ! '>' !
+    \) -> \(
+      <='>'> {ray: $, y: $photon.y, x: $photon.x + 1"x"} !
+      <='<'> {ray: $, y: $photon.y, x: $photon.x - 1"x"} !
+      <='^'> {ray: $, y: $photon.y - 1"y", x: $photon.x} !
+      <='v'> {ray: $, y: $photon.y + 1"y", x: $photon.x} !
+    \) -> #
+end energize
+
+// part 1
+$energize&{start: {ray: '>', y: $cavern::first, x: $cavern(first)::first}} -> !OUT::write
+'
+' -> !OUT::write
+
+// part 2
+[$cavern -> \[y]({ray: '>', y: $y, x: $cavern(first)::first} ! {ray: '<', y: $y, x: $cavern(first)::last} ! \)...,
+$cavern(first) -> \[x]({ray: 'v', y: $cavern::first, x: $x} ! {ray: '^', y: $cavern::last, x: $x} ! \)...] ...
+-> energize&{start: $} -> ..=Max&{by: :(), select: :()} -> !OUT::write
