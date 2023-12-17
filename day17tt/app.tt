@@ -4,47 +4,51 @@ end toHeatLoss
 
 def map: 1"y":[$IN::lines -> 1"x":[$... -> toHeatLoss]];
 
+templates moves&{to:}
+  def current: $;
+  def direction: {x: ($.direction.y)"x", y: ($.direction.x)"y"};
+  @: {heat-loss: 0"hl", direction: $direction, from: $current.position,
+    position: {x: $current.position.x + $to * $direction.x, y: $current.position.y + $to * $direction.y}
+  };
+  1..3 -> #
+  when <?($@.position <{x: <..~$map(first)::first|$map(first)::last~..>}
+      |{y: <..~$map::first|$map::last~..>}>)> do
+    !VOID
+
+  otherwise
+    @.heat-loss: $@.heat-loss + $map($@.position.y; $@.position.x);
+    $@!
+    @.position.x: $@.position.x + $to * $direction.x;
+    @.position.y: $@.position.y + $to * $direction.y;
+end moves
+
 source find-min-loss
   @: {
     min-loss: 0"x":[0..1 -> 1"y":[1..$map::length ->
       1"x":[1..$map(first)::length ->
         ($map::length * $map(first)::length * 9)"hl"]]],
     queue: [
-      {position: {x: 1"x", y: 1"y"}, direction: {x: 1"x", y: 0"y"}, heat-loss: 0"hl"},
-      {position: {x: 1"x", y: 1"y"}, direction: {x: 0"x", y: 1"y"}, heat-loss: 0"hl"}
+      {position: {x: 1"x", y: 1"y"}, direction: {x: 1"x", y: 0"y"}} -> moves&{to: 1"1"},
+      {position: {x: 1"x", y: 1"y"}, direction: {x: 0"x", y: 1"y"}} -> moves&{to: 1"1"}
     ]
   };
+  @.min-loss(0"x"; 1"y"; 1"x"): 0"hl";
+  @.min-loss(1"x"; 1"y"; 1"x"): 0"hl";
   ^@.queue(first..first)... -> #
   $@.min-loss(first..last;last;last) ... -> ..=Min&{by: :(), select: :()} !
 
-  when <{heat-loss: <..~$@.min-loss($.direction.x; $.position.y; $.position.x)>}> do
-    '$@.queue::length; inc $;$#10;' -> !OUT::write
-    @.min-loss($.direction.x; $.position.y; $.position.x): $.heat-loss;
-    def current: $;
-    def direction: {x: ($.direction.y)"x", y: ($.direction.x)"y"};
+  when <{heat-loss: <..~($@.min-loss($.direction.x; $.position.y; $.position.x)
+      - $@.min-loss(($.direction.y)"x"; $.from.y; $.from.x))>}> do
+    // '$@.queue::length; inc $;$#10;' -> !OUT::write
+    @.min-loss($.direction.x; $.position.y; $.position.x): $.heat-loss
+      + $@.min-loss(($.direction.y)"x"; $.from.y; $.from.x);
 
-    source moves&{to:}
-      @: {heat-loss: $current.heat-loss, direction: $direction,
-        position: {x: $current.position.x + $to * $direction.x, y: $current.position.y + $to * $direction.y}
-      };
-      1..3 -> #
-      when <?($@.position <{x: <..~$map(first)::first|$map(first)::last~..>}
-          |{y: <..~$map::first|$map::last~..>}>)> do
-        !VOID
-
-      otherwise
-        @.heat-loss: $@.heat-loss + $map($@.position.y; $@.position.x);
-        $@!
-        @.position.x: $@.position.x + $to * $direction.x;
-        @.position.y: $@.position.y + $to * $direction.y;
-    end moves
-
-    $moves&{to: 1"1"} -> ..|@.queue: $;
-    $moves&{to: -1"1"} -> ..|@.queue: $;
+    $ -> moves&{to: 1"1"} -> ..|@.queue: $;
+    $ -> moves&{to: -1"1"} -> ..|@.queue: $;
     ^@.queue(first..first)... -> #
 
   otherwise
-    '$@.queue::length; not $;$#10;' -> !OUT::write
+    // '$@.queue::length; not $;$#10;' -> !OUT::write
     ^@.queue(first..first)... -> #
 end find-min-loss
 
