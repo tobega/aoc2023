@@ -4,32 +4,32 @@ end toHeatLoss
 
 def map: 1"y":[$IN::lines -> 1"x":[$... -> toHeatLoss]];
 
-templates moves&{to:}
+templates moves&{to:, min:, max:}
   def current: $;
   def direction: {x: ($.direction.y)"x", y: ($.direction.x)"y"};
   @: {heat-loss: 0"hl", direction: $direction, from: $current.position,
     position: {x: $current.position.x + $to * $direction.x, y: $current.position.y + $to * $direction.y}
   };
-  1..3 -> #
+  1"1"..$max -> #
   when <?($@.position <{x: <..~$map(first)::first|$map(first)::last~..>}
       |{y: <..~$map::first|$map::last~..>}>)> do
     !VOID
 
   otherwise
     @.heat-loss: $@.heat-loss + $map($@.position.y; $@.position.x);
-    $@!
+    $ -> \(<$min..> $!\) -> $@!
     @.position.x: $@.position.x + $to * $direction.x;
     @.position.y: $@.position.y + $to * $direction.y;
 end moves
 
-source find-min-loss
+source find-min-loss&{min:, max:}
   @: {
     min-loss: 0"x":[0..1 -> 1"y":[1..$map::length ->
       1"x":[1..$map(first)::length ->
         ($map::length * $map(first)::length * 9)"hl"]]],
     queue: [
-      {position: {x: 1"x", y: 1"y"}, direction: {x: 1"x", y: 0"y"}} -> moves&{to: 1"1"},
-      {position: {x: 1"x", y: 1"y"}, direction: {x: 0"x", y: 1"y"}} -> moves&{to: 1"1"}
+      {position: {x: 1"x", y: 1"y"}, direction: {x: 1"x", y: 0"y"}} -> moves&{to: 1"1", min: $min, max: $max},
+      {position: {x: 1"x", y: 1"y"}, direction: {x: 0"x", y: 1"y"}} -> moves&{to: 1"1", min: $min, max: $max}
     ]
   };
   @.min-loss(0"x"; 1"y"; 1"x"): 0"hl";
@@ -43,8 +43,8 @@ source find-min-loss
     @.min-loss($.direction.x; $.position.y; $.position.x): $.heat-loss
       + $@.min-loss(($.direction.y)"x"; $.from.y; $.from.x);
 
-    $ -> moves&{to: 1"1"} -> ..|@.queue: $;
-    $ -> moves&{to: -1"1"} -> ..|@.queue: $;
+    $ -> moves&{to: 1"1", min: $min, max: $max} -> ..|@.queue: $;
+    $ -> moves&{to: -1"1", min: $min, max: $max} -> ..|@.queue: $;
     ^@.queue(first..first)... -> #
 
   otherwise
@@ -71,8 +71,16 @@ test 'example'
   ] -> 1"y":[$... -> 1"x":[$... -> toHeatLoss]];
   end program
 
-  assert $find-min-loss <=102"hl"> 'part 1'
+  assert $find-min-loss&{min: 1"1", max: 3"1"} <=102"hl"> 'part 1'
+
+  assert $find-min-loss&{min: 4"1", max: 10"1"} <=94"hl"> 'part 2'
 end 'example'
 
 // part 1
-$find-min-loss -> !OUT::write
+$find-min-loss&{min: 1"1", max: 3"1"} -> !OUT::write
+'
+' -> !OUT::write
+
+// part 2
+$find-min-loss&{min: 4"1", max: 10"1"} -> !OUT::write
+
