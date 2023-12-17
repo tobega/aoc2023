@@ -1,21 +1,25 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-      {
-        "type": "java",
-        "name": "Launch Current File",
-        "request": "launch",
-        "classPaths": ["/Users/tobe/code/tailspin-v0/tailspin.jar"],
-        "mainClass": "tailspin.Tailspin",
-        "args": "${file} < input.txt"
-      },
-      {
-        "type": "java",
-        "name": "Test Current File",
-        "request": "launch",
-        "classPaths": ["/Users/tobe/code/tailspin-v0/tailspin.jar"],
-        "mainClass": "tailspin.Tailspin",
-        "args": "--test ${file} < input.txt"
-      }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Launch Current File",
+      "request": "launch",
+      "classPaths": [
+        "/Users/torbjorn.gannholm/tobega/tailspin-v0/tailspin.jar"
+      ],
+      "mainClass": "tailspin.Tailspin",
+      "args": "${file} < input.txt"
+    },
+    {
+      "type": "java",
+      "name": "Test Current File",
+      "request": "launch",
+      "classPaths": [
+        "/Users/torbjorn.gannholm/tobega/tailspin-v0/tailspin.jar"
+      ],
+      "mainClass": "tailspin.Tailspin",
+      "args": "--test ${file} < input.txt"
+    }
+  ]
 }
