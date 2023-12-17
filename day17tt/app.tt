@@ -1,0 +1,7 @@
+composer toHeatLoss
+  <INT"hl">
+end toHeatLoss
+
+def map: [$IN::lines -> [$... -> toHeatLoss]];
+
+find-min-loss
