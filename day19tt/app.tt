@@ -1,0 +1,63 @@
+composer parse-workflow
+  {name: <~='{'>, (<='{'>) workflow: [<rule>+, {<switch>}] -> Workflow (<='}'>)}
+  rule rule: {category: <'.'>, <lt|gt>, (<=':'>) <switch>} (<=','>)
+  rule lt: (<='<'>) lt: <INT"1">
+  rule gt: (<='>'>) gt: <INT"1">
+  rule switch: switch: <name´'\w+'>
+end parse-workflow
+
+composer parse-part
+  (<='{'>) {<field>+} (<='}'>)
+  rule field: <'.'>: (<='='>) <INT"1"> (<=','>?)
+end parse-part
+
+processor Workflow
+  operator (part apply rule)
+    $rule -> #
+    when <´{}´ {switch: <> VOID}> do $.switch !
+    otherwise
+      def value: $rule -> \(
+        <{category: <='x'>}> $part.x !
+        <{category: <='m'>}> $part.m !
+        <{category: <='a'>}> $part.a !
+        <{category: <='s'>}> $part.s !
+      \);
+      $rule -> \(
+        when <´{}´ {lt: <$value~..>}> do $.switch !
+        when <´{}´ {gt: <..~$value>}> do $.switch !
+      \) !      
+  end apply
+
+  def rules: $;
+
+  templates process
+    @: $rules;
+    def part: $;
+    [] -> #
+    when <[](0)> do [($part apply ^@(1))] -> #
+    otherwise $... !
+  end process
+end Workflow
+
+def workflows: {|
+  $IN::readline -> \(
+    when <~=''> do
+      $ -> parse-workflow !
+      $IN::readline -> #
+  \)
+|};
+
+def parts: [$IN::lines -> parse-part];
+
+templates is-accepted
+  def part: $;
+  name´'in' -> #
+  when <=name´'R'> do !VOID
+  when <=name´'A'> do $part !
+  otherwise
+    def workflow: ($workflows matching {|{name: $}|})... -> $.workflow;
+    $part -> workflow::process -> #
+end is-accepted
+
+// part 1
+$parts... -> is-accepted -> $.x + $.m + $.a + $.s -> ..=Sum&{of: :()} -> !OUT::write
