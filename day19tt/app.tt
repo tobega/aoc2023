@@ -28,6 +28,39 @@ processor Workflow
       \) !      
   end apply
 
+  operator (ranges apply-ranges rule)
+    $rule -> #
+    when <´{}´ {switch: <> VOID}> do {to: $.switch, ranges: $ranges} !
+    otherwise
+      source split&{range-type:}
+        def range: $ranges(range-type);
+        $rule -> #
+        when <´{}´ {lt: <$range.max~..>}> do {to: $.switch, ranges: $ranges} !
+        when <´{}´ {lt: <$range.min~..>}> do
+          @: $ranges;
+          @(range-type): {min: $range.min, max: $.lt - 1"1"};
+          {to: $.switch, ranges: $@} !
+          @(range-type): {min: $.lt, max: $range.max};
+          {ranges: $@} !
+        when <´{}´ {lt: <>}> do {ranges: $ranges} !
+
+        when <´{}´ {gt: <..~$range.min>}> do {to: $.switch, ranges: $ranges} !
+        when <´{}´ {gt: <..~$range.max>}> do
+          @: $ranges;
+          @(range-type): {min: $.gt + 1"1", max: $range.max};
+          {to: $.switch, ranges: $@} !
+          @(range-type): {min: $range.min, max: $.gt};
+          {ranges: $@} !
+        when <´{}´ {gt: <>}> do {ranges: $ranges} !
+      end split
+      $rule -> \(
+        <{category: <='x'>}> $split&{range-type: :(xs:)} !
+        <{category: <='m'>}> $split&{range-type: :(ms:)} !
+        <{category: <='a'>}> $split&{range-type: :(as:)} !
+        <{category: <='s'>}> $split&{range-type: :(ss:)} !
+      \) !
+  end apply-ranges
+
   def rules: $;
 
   templates process
@@ -37,6 +70,13 @@ processor Workflow
     when <[](0)> do [($part apply ^@(1))] -> #
     otherwise $... !
   end process
+
+  templates process-ranges
+    @: $rules;
+    $ -> #
+    when <´{}´ {to: <>}> do $ !
+    otherwise ($.ranges apply-ranges ^@(1)) -> #
+  end process-ranges
 end Workflow
 
 def workflows: {|
@@ -61,3 +101,44 @@ end is-accepted
 
 // part 1
 $parts... -> is-accepted -> $.x + $.m + $.a + $.s -> ..=Sum&{of: :()} -> !OUT::write
+
+source accepted-ranges
+  {to: name´'in', ranges: {
+    xs: {min: 1"1", max: 4000"1"},
+    ms: {min: 1"1", max: 4000"1"},
+    as: {min: 1"1", max: 4000"1"},
+    ss: {min: 1"1", max: 4000"1"}
+  }} -> #
+  when <{to: <=name´'R'>}> do !VOID
+  when <{to: <=name´'A'>}> do $.ranges !
+  otherwise
+    def workflow: ($workflows matching {|{name: $.to}|})... -> $.workflow;
+    {ranges: $.ranges} -> workflow::process-ranges -> #
+end accepted-ranges
+
+test 'ranges example'
+  modify program
+    def workflows: {| [
+      'px{a<2006:qkq,m>2090:A,rfg}',
+      'pv{a>1716:R,A}',
+      'lnx{m>1548:A,A}',
+      'rfg{s<537:gd,x>2440:R,A}',
+      'qs{s>3448:A,lnx}',
+      'qkq{x<1416:A,crn}',
+      'crn{x>2662:A,R}',
+      'in{s<1351:px,qqz}',
+      'qqz{s>2770:qs,m<1801:hdj,R}',
+      'gd{a>3333:R,R}',
+      'hdj{m>838:A,pv}'
+    ]... -> parse-workflow |};
+  end program
+
+  assert $accepted-ranges
+-> ($.xs.max - $.xs.min + 1"1") * ($.ms.max - $.ms.min + 1"1") * ($.as.max - $.as.min + 1"1") * ($.ss.max - $.ss.min + 1"1")
+-> ..=Sum&{of: :()} <=167409079868000"1"> ''
+end 'ranges example'
+
+// part 2
+$accepted-ranges
+-> ($.xs.max - $.xs.min + 1"1") * ($.ms.max - $.ms.min + 1"1") * ($.as.max - $.as.min + 1"1") * ($.ss.max - $.ss.min + 1"1")
+-> ..=Sum&{of: :()} -> !OUT::write
