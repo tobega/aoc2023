@@ -70,14 +70,7 @@ def node-defs: {| $IN::lines -> parse-node-defs |};
 def inputs: {|$node-defs... -> {name: $.name, by $.outputs... -> (destination: $)}|}
   -> $(collect {inputs: List&{of: :(name:)}} by $({destination:})) -> $({inputs:, name: §.destination});
 
-def nodes: (($node-defs join $inputs) union (($node-defs notMatching $inputs) join {|{inputs: []}|}))
-  -> $({name:, node: § -> \(
-    when <{module: <=module#broadcast>}> do $ -> Broadcaster !
-    when <{module: <=module#flip-flop>}> do $ -> Flip-Flop !
-    when <{module: <=module#conjunction>}> do $ -> Conjunction !
-  \)});
-
-source push-button
+source push-button&{nodes:}
   @: { queue: [], low: 0"1", high: 0"1" };
   {name: 'button', destination: name´'broadcaster', signal: signal#low} -> #
   $@({low:, high:}) !
@@ -96,6 +89,54 @@ source push-button
     ^@.queue(first..first)... -> #
 end push-button
 
+source set-up-network
+  (($node-defs join $inputs) union (($node-defs notMatching $inputs) join {|{inputs: []}|}))
+  -> $({name:, node: § -> \(
+    when <{module: <=module#broadcast>}> do $ -> Broadcaster !
+    when <{module: <=module#flip-flop>}> do $ -> Flip-Flop !
+    when <{module: <=module#conjunction>}> do $ -> Conjunction !
+  \)}) !
+end set-up-network
+
 // part 1
-[1..1000 -> push-button] -> $(collect {low: Sum&{of: :(low:)}, high: Sum&{of: :(high:)}} by [{}])... -> $.low * $.high
+def part1: $set-up-network;
+[1..1000 -> push-button&{nodes: $part1}] -> $(collect {low: Sum&{of: :(low:)}, high: Sum&{of: :(high:)}} by [{}])... -> $.low * $.high
 -> !OUT::write
+'
+' -> !OUT::write
+
+// part 2
+// guessing that the inputs to qb go in cycles
+templates push-check-qb&{nodes:}
+  def push: $;
+  @: { queue: [] };
+  {name: 'button', destination: name´'broadcaster', signal: signal#low} -> #
+  $push !
+
+  when <{destination: <=name´'qb'>, signal: <=signal#high>}> do
+    {name: $.name, pushes: $push} !
+    def qb: ($nodes matching {|{name: 'qb'}|})... -> $.node;
+    $ -> qb::process-pulse -> ..|@.queue: $;
+    ^@.queue(first..first)... -> #
+  otherwise
+    def message: $;
+    // Some destination nodes do not exist
+    ($nodes matching {|{name: $.destination}|})... -> $.node
+    -> \( def node: $;
+      $message -> node::process-pulse !
+    \) -> ..|@.queue: $;
+    ^@.queue(first..first)... -> #
+end push-check-qb
+
+source part2
+  def nodes: $set-up-network;
+  0 -> #
+  when <{}> $!
+  when <5000..> do !VOID // This should really check that we got a value for each input to qb
+  otherwise $ + 1 -> push-check-qb&{nodes: $nodes} -> #
+end part2
+[$part2] -> \(
+  @: 1;
+  $... -> @: $@ * $.pushes::raw;
+  $@!
+\) -> !OUT::write
