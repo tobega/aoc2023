@@ -1,0 +1,101 @@
+data
+  module #{broadcast, flip-flop, conjunction},
+  signal #{low, high},
+  pulse <{name: <'.+'>, destination: <name>, signal: <signal#>}>
+
+processor Broadcaster
+  def name: $.name;
+  def outputs: $.outputs;
+
+  templates process-pulse
+    def in: $;
+    $outputs... -> {destination: $, signal: $in.signal, name: $name}!
+  end process-pulse
+end Broadcaster
+
+processor Flip-Flop
+  def name: $.name;
+  def outputs: $.outputs;
+  @Off: 1;
+
+  state Off
+    templates process-pulse
+      when <{signal: <=signal#low>}> do
+        @On: 1;
+        $outputs... -> {destination: $, signal: signal#high, name: $name}!
+    end process-pulse
+  end Off
+
+  state On
+    templates process-pulse
+      when <{signal: <=signal#low>}> do
+        @Off: 1;
+        $outputs... -> {destination: $, signal: signal#low, name: $name}!
+    end process-pulse
+  end On
+end Flip-Flop
+
+processor Conjunction
+  processor AllHigh
+    @: signal#low;
+    sink accumulate
+      <{signal: <=signal#low>}> @AllHigh: signal#high;
+    end accumulate
+    source result
+      $@AllHigh!
+    end result
+  end AllHigh
+
+  def name: $.name;
+  def outputs: $.outputs;
+  @: {| $.inputs... -> {name: $, signal: signal#low} |};
+
+  templates process-pulse
+    @Conjunction: (($@Conjunction notMatching {|$({name:})|}) union {|$({name:, signal:})|});
+    def signal: $@Conjunction... -> ..=AllHigh;
+    $outputs... -> {destination: $, signal: $signal, name: $name}!
+  end process-pulse
+end Conjunction
+
+composer parse-node-defs
+  { <broadcaster|node> (<=' -> '>) outputs: [<destination>+]}
+  rule broadcaster:  name: <='broadcaster'>, module: module#broadcast
+  rule node: module: <'.'> -> \(<='%'> module#flip-flop ! <='&'> module#conjunction ! \), name: <name>
+  rule destination: <name> (<=', '>?)
+  rule name: <name´'\w+'>
+end parse-node-defs
+
+def node-defs: {| $IN::lines -> parse-node-defs |};
+
+def inputs: {|$node-defs... -> {name: $.name, by $.outputs... -> (destination: $)}|}
+  -> $(collect {inputs: List&{of: :(name:)}} by $({destination:})) -> $({inputs:, name: §.destination});
+
+def nodes: (($node-defs join $inputs) union (($node-defs notMatching $inputs) join {|{inputs: []}|}))
+  -> $({name:, node: § -> \(
+    when <{module: <=module#broadcast>}> do $ -> Broadcaster !
+    when <{module: <=module#flip-flop>}> do $ -> Flip-Flop !
+    when <{module: <=module#conjunction>}> do $ -> Conjunction !
+  \)});
+
+source push-button
+  @: { queue: [], low: 0"1", high: 0"1" };
+  {name: 'button', destination: name´'broadcaster', signal: signal#low} -> #
+  $@({low:, high:}) !
+
+  <>
+    $.signal -> \(
+      <=signal#low> @push-button.low: $@push-button.low + 1"1";
+      <=signal#high> @push-button.high: $@push-button.high + 1"1";
+    \) -> !VOID
+    def message: $;
+    // Some destination nodes do not exist
+    ($nodes matching {|{name: $.destination}|})... -> $.node
+    -> \( def node: $;
+      $message -> node::process-pulse !
+    \) -> ..|@.queue: $;
+    ^@.queue(first..first)... -> #
+end push-button
+
+// part 1
+[1..1000 -> push-button] -> $(collect {low: Sum&{of: :(low:)}, high: Sum&{of: :(high:)}} by [{}])... -> $.low * $.high
+-> !OUT::write
