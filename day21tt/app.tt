@@ -1,0 +1,20 @@
+def map: {| 1"y":[$IN::lines -> 1"x":[$...]] -> \[y;x]({mark: $, x: $x, y: $y } !\)... ... |};
+
+def start: ($map matching {|{mark: 'S'}|})...;
+def garden-plots: ($map matching {|{mark: 'S'}, {mark: '.'}|}) -> $({x:, y:});
+
+// part 1
+source steps64
+  @: {| $start({x:, y:}) |};
+  1..64 -> #
+  $@::count !
+
+  <> @: ({| $@... -> \(
+    {x: $.x, y: $.y + 1"y"} !
+    {x: $.x, y: $.y - 1"y"} !
+    {x: $.x + 1"x", y: $.y} !
+    {x: $.x - 1"x", y: $.y} !
+  \) |} matching $garden-plots);
+end steps64
+
+$steps64 -> !OUT::write
