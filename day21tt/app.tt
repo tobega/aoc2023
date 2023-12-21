@@ -1,20 +1,45 @@
-def map: {| 1"y":[$IN::lines -> 1"x":[$...]] -> \[y;x]({mark: $, x: $x, y: $y } !\)... ... |};
+def grid: 0"y":[$IN::lines -> 0"x":[$...]];
+def map: {| $grid -> \[y;x]({mark: $, x: $x, y: $y } !\)... ... |};
 
 def start: ($map matching {|{mark: 'S'}|})...;
 def garden-plots: ($map matching {|{mark: 'S'}, {mark: '.'}|}) -> $({x:, y:});
 
-// part 1
-source steps64
-  @: {| $start({x:, y:}) |};
-  1..64 -> #
-  $@::count !
-
-  <> @: ({| $@... -> \(
+templates step1
+  ({| $... -> \(
     {x: $.x, y: $.y + 1"y"} !
     {x: $.x, y: $.y - 1"y"} !
     {x: $.x + 1"x", y: $.y} !
     {x: $.x - 1"x", y: $.y} !
-  \) |} matching $garden-plots);
-end steps64
+  \) |} matching $garden-plots) !
+end step1
 
-$steps64 -> !OUT::write
+templates steps&{step1:, go:}
+  @: $;
+  1"steps"..$go -> #
+  $@ !
+
+  <> @: $@ -> step1;
+end steps
+
+//part 1
+{| $start({x:, y:}) |} -> steps&{step1: step1, go: 64"steps"} -> $::count -> !OUT::write
+'
+' -> !OUT::write
+
+//part 2
+// idea: seems to be a parity thing going on within each block. But that seems to reverse to the next.
+// Suspect that reaching the start in adjacent blocks
+// might be a "spearhead" and then we can modulo on that distance
+
+templates step1-mod
+  ({| $... -> \(
+    {x: $.x, y: ($.y + 1"y") mod $grid::length} !
+    {x: $.x, y: ($.y - 1"y") mod $grid::length} !
+    {x: ($.x + 1"x") mod $grid(first)::length, y: $.y} !
+    {x: ($.x - 1"x") mod $grid(first)::length, y: $.y} !
+  \) |} matching $garden-plots) !
+end step1-mod
+
+def foo: {| $start({x:, y:}) |} -> steps&{step1: step1, go: 200"steps"};
+def bar: $foo -> step1;
+($foo matching $bar) -> !OUT::write
