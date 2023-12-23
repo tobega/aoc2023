@@ -1,0 +1,74 @@
+data order #{before, same, after}
+
+operator (a byMinZ b)
+  $a -> #
+  when <{from: <{z: <..~$b.from.z>}>}> do order#before !
+  when <{from: <{z: <$b.from.z~..>}>}> do order#after !
+  otherwise order#same !
+end byMinZ
+
+templates bubblesort&{compare:}
+  templates bubble
+    @: 1;
+    1..$-1 -> #
+    $@ !
+    when <?(($@bubblesort($+1) compare $@bubblesort($)) <=order#before>)> do
+      @: $;
+      def temp: $@bubblesort($@);
+      @bubblesort($@): $@bubblesort($@+1);
+      @bubblesort($@+1): $temp;
+  end bubble
+
+  @: $;
+  $::length -> #
+  $@ !
+
+  when <2..> do
+    $ -> bubble -> #
+end bubblesort
+
+composer parse-brick
+  {from: <coords>, (<='~'>) to: <coords>}
+  rule coords: {x: <INT"x"> (<=','>), y: <INT"y"> (<=','>), z: <INT"z"> }
+end parse-brick
+
+def snapshot: [ $IN::lines -> parse-brick ]
+  -> \[i](
+    when <{to: <{x: <$.from.x..>, y: <$.from.y..>, z: <$.from.z..>}>}> do {id: $i, $}!
+    otherwise {id: $i, from: $.to, to: $.from} !
+  \);
+
+def minX: $snapshot... -> ..=Min&{by: :(from:;x:), select: :(from:;x:)};
+def maxX: $snapshot... -> ..=Max&{by: :(to:;x:), select: :(to:;x:)};
+def minY: $snapshot... -> ..=Min&{by: :(from:;y:), select: :(from:;y:)};
+def maxY: $snapshot... -> ..=Max&{by: :(to:;y:), select: :(to:;y:)};
+
+templates settle
+  @: {
+    vital-supports: {||},
+    space: 1"z":[$minY:[$minY..$maxY -> $minX:[$minX..$maxX -> id´0]]]
+  };
+  $... -> #
+  $@ !
+
+  when <{from: <{z: <$@.space::last~..>}>}> do
+    def drop: $.from.z - $@.space::last;
+    {id: $.id, from: $.from({x:,y:,z: §.z - $drop}), to: $.to({x:,y:,z: §.z - $drop})} -> #
+  
+  when <{from: <{z: <=1"z">}>}
+  | ?($@.space($.from.z; $.from.y..$.to.y; $.from.x..$.to.x) <[<[<~=id´0>]>]>)> do
+    {| $@.space($.from.z; $.from.y..$.to.y; $.from.x..$.to.x)... ... -> \(<~=id´0> {id: $}! \)|} -> \(
+      <?($::count <=1>)> $!
+    \) -> @.vital-supports: ($@.vital-supports union $);
+    $@.space::last + 1"z"..$.to.z + 1"z" -> ..|@.space: $minY:[$minY..$maxY -> $minX:[$minX..$maxX -> id´0]];
+    {id: $.id, by $.from.z..$.to.z -> (z: $ + 1"z"),
+      by $.from.y..$.to.y -> (y: $),
+      by $.from.x..$.to.x -> (x: $)
+    } -> @.space($.z; $.y; $.x): $.id;
+
+  otherwise
+    {id: $.id, from: $.from({x:,y:,z: §.z - 1"z"}), to: $.to({x:,y:,z: §.z - 1"z"})} -> #
+end settle
+
+// day 1
+$snapshot -> bubblesort&{compare: byMinZ} -> settle -> $snapshot::length - $.vital-supports::count -> !OUT::write
