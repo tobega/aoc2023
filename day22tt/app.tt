@@ -32,11 +32,7 @@ composer parse-brick
   rule coords: {x: <INT"x"> (<=','>), y: <INT"y"> (<=','>), z: <INT"z"> }
 end parse-brick
 
-def snapshot: [ $IN::lines -> parse-brick ]
-  -> \[i](
-    when <{to: <{x: <$.from.x..>, y: <$.from.y..>, z: <$.from.z..>}>}> do {id: $i, $}!
-    otherwise {id: $i, from: $.to, to: $.from} !
-  \);
+def snapshot: [ $IN::lines -> parse-brick ];
 
 def minX: $snapshot... -> ..=Min&{by: :(from:;x:), select: :(from:;x:)};
 def maxX: $snapshot... -> ..=Max&{by: :(to:;x:), select: :(to:;x:)};
@@ -45,11 +41,11 @@ def maxY: $snapshot... -> ..=Max&{by: :(to:;y:), select: :(to:;y:)};
 
 templates settle
   @: {
-    vital-supports: {||},
+    supports: id´1:[1..$snapshot::length -> {||}],
     space: 1"z":[$minY:[$minY..$maxY -> $minX:[$minX..$maxX -> id´0]]]
   };
   $... -> #
-  $@ !
+  $@.supports !
 
   when <{from: <{z: <$@.space::last~..>}>}> do
     def drop: $.from.z - $@.space::last;
@@ -57,9 +53,9 @@ templates settle
   
   when <{from: <{z: <=1"z">}>}
   | ?($@.space($.from.z; $.from.y..$.to.y; $.from.x..$.to.x) <[<[<~=id´0>]>]>)> do
-    {| $@.space($.from.z; $.from.y..$.to.y; $.from.x..$.to.x)... ... -> \(<~=id´0> {id: $}! \)|} -> \(
-      <?($::count <=1>)> $!
-    \) -> @.vital-supports: ($@.vital-supports union $);
+    def id: $.id;
+    {| $@.space($.from.z; $.from.y..$.to.y; $.from.x..$.to.x)... ... -> \(<~=id´0> {id: $}! \)|}
+      -> @.supports($id): $;
     $@.space::last + 1"z"..$.to.z + 1"z" -> ..|@.space: $minY:[$minY..$maxY -> $minX:[$minX..$maxX -> id´0]];
     {id: $.id, by $.from.z..$.to.z -> (z: $ + 1"z"),
       by $.from.y..$.to.y -> (y: $),
@@ -70,5 +66,41 @@ templates settle
     {id: $.id, from: $.from({x:,y:,z: §.z - 1"z"}), to: $.to({x:,y:,z: §.z - 1"z"})} -> #
 end settle
 
-// day 1
-$snapshot -> bubblesort&{compare: byMinZ} -> settle -> $snapshot::length - $.vital-supports::count -> !OUT::write
+def sortedZ: $snapshot -> bubblesort&{compare: byMinZ}
+  -> \[i](
+    when <{to: <{x: <$.from.x..>, y: <$.from.y..>, z: <$.from.z..>}>}> do {id: $i, $}!
+    otherwise {id: $i, from: $.to, to: $.from} !
+  \);
+def supports: $sortedZ -> settle;
+
+// part 1
+{| $supports... -> \(<?($::count <=1>)> $... !\) |} -> $snapshot::length - $::count -> !OUT::write
+'
+' -> !OUT::write
+
+// part2
+templates count-falls
+  @: {|{id: $}|};
+  $~..$supports::last -> #
+  $@::count - 1!
+
+  when <?($supports($)::count <1..>)?(($supports($) matching $@) -> $::count <=$supports($)::count>)> do
+    @: ($@ union {|{id: $}|});
+end count-falls
+
+$supports::first..$supports::last -> count-falls -> ..=Sum&{of: :()} -> !OUT::write
+
+test 'example'
+  modify program
+    def supports: id´1:[
+      {||},
+      {|{id: 1}|},
+      {|{id: 1}|},
+      {|{id: 2}, {id: 3}|},
+      {|{id: 2}, {id: 3}|},
+      {|{id: 4}, {id: 5}|},
+      {|{id: 6}|}
+    ];
+  end program
+  assert $supports::first..$supports::last -> count-falls -> ..=Sum&{of: :()} <=7> 'part 2'
+end 'example'
