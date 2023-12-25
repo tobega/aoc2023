@@ -1,0 +1,58 @@
+composer parse-hailstone
+  {x: <INT"x"> (<=','> <WS>), y: <INT"y"> (<=','> <WS>), z: <INT"z">, (<=' @'> <WS>) xv: <INT"x"> (<=','> <WS>), yv: <INT"y"> (<=','> <WS>), zv: <INT"z">}
+end parse-hailstone
+
+def hailstones: [$IN::lines -> parse-hailstone];
+
+templates to-xy-eq // put into ax + by + c = 0 form
+  {$..., a: ($.yv)"1", b: (-$.xv)"1", c: ($.xv * $.y - $.yv * $.x)"1"} !
+end to-xy-eq
+
+// This should work, but the numbers overflow a long
+operator (l1 intersect l2) // using Cramer's rule, x is Dx/D, y is Dy/D
+  def D: $l1.a * $l2.b - $l1.b * $l2.a;
+  def Dx: -$l1.c * $l2.b + $l1.b * $l2.c;
+  { D: $D,
+    Dx: $Dx,
+    Dy: -$l1.a * $l2.c + $l1.c * $l2.a,
+    Dt1: (($Dx - $D * $l1.x) ~/ $l1.xv)"1", // truncation doesn't matter, ambiguous if zero
+    Dt2: (($Dx - $D * $l2.x) ~/ $l2.xv)"1" // truncation doesn't matter, ambiguous if zero
+  } !
+end intersect
+
+templates count-pairwise-intersections&{min:, max:}
+  def xys: [$... -> to-xy-eq];
+  @: 0;
+  1..$xys::length -> [$, by $~..$xys::length] -> ($xys($(1)) intersect $xys($(2))) -> #
+  $@!
+
+  when <{D: <0"1"~..>, Dx: <$.D*$min..$.D*$max>, Dy: <$.D*$min..$.D*$max>, Dt1: <0"1"..>, Dt2: <0"1"..>}
+  | {D: <..~0"1">, Dx: <$.D*$max..$.D*$min>, Dy: <$.D*$max..$.D*$min>, Dt1: <..0"1">, Dt2: <..0"1">}> do
+    // '$; $:$.D*$min; $:$.D*$max;$#10;' -> !OUT::write
+    @: $@ + 1;
+  otherwise
+    //'no $; $:$.D*$min; $:$.D*$max;$#10;' -> !OUT::write
+    !VOID    
+end count-pairwise-intersections
+
+test 'example'
+  use shadowed core-system/
+    processor MockIn
+      source lines
+        [
+          '19, 13, 30 @ -2,  1, -2',
+          '18, 19, 22 @ -1, -1, -2',
+          '20, 25, 34 @ -2, -2, -4',
+          '12, 31, 28 @ -1, -2, -1',
+          '20, 19, 15 @  1, -5, -3'
+        ]... !
+      end lines
+    end MockIn
+    def IN: $MockIn;
+  end core-system/
+
+  assert $hailstones -> count-pairwise-intersections&{min: 7"1", max: 27"1"} <=2> 'part 1'
+end 'example'
+
+// part 1
+$hailstones -> count-pairwise-intersections&{min: 200000000000000"1", max: 400000000000000"1"} -> !OUT::write
