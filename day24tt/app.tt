@@ -1,3 +1,5 @@
+// The numbers overflow a long, which should be fine once I implement unlimited integers,
+// but for now I need to convolute it with using java BigInteger
 use 'java:java.math' stand-alone
 
 composer parse-hailstone
@@ -11,6 +13,7 @@ end parse-hailstone
 
 def hailstones: [$IN::lines -> parse-hailstone];
 
+// part 1
 templates to-xy-eq // put into ax + by + c = 0 form
   def val: $;
   def c1: $val.y -> val.xv::multiply;
@@ -23,7 +26,6 @@ templates to-xy-eq // put into ax + by + c = 0 form
    } !
 end to-xy-eq
 
-// This should work, but the numbers overflow a long
 operator (l1 intersect l2) // using Cramer's rule, x is Dx/D, y is Dy/D
   def D1: $l2.b -> l1.a::multiply;
   def D2: $l2.a -> l1.b::multiply;
@@ -41,8 +43,8 @@ operator (l1 intersect l2) // using Cramer's rule, x is Dx/D, y is Dy/D
   } !
 end intersect
 
+def zero: 0 -> math/BigInteger::valueOf;
 templates count-pairwise-intersections&{min:, max:}
-  def zero: 0 -> math/BigInteger::valueOf;
   def xys: [$... -> to-xy-eq];
   @: 0;
   1..$xys::length -> [$, by $~..$xys::length] -> ($xys($(1)) intersect $xys($(2))) -> #
@@ -88,8 +90,111 @@ test 'example'
   assert $hailstones -> count-pairwise-intersections&{min: 7 -> math/BigInteger::valueOf, max: 27 -> math/BigInteger::valueOf} <=2> 'part 1'
 end 'example'
 
-// part 1
 $hailstones -> count-pairwise-intersections&{
   min: 200000000000000 -> math/BigInteger::valueOf,
   max: 400000000000000 -> math/BigInteger::valueOf
 } -> !OUT::write
+'
+' -> !OUT::write
+
+// part 2
+// The Einstein move here is to view the world relative to the first hailstone. Thanks to https://www.reddit.com/r/adventofcode/comments/18q0kfc/comment/kes6ywf/
+// The really beautiful part of it is that everything goes through the origin, which simplifies things
+// Assuming that I can get by with long integers here
+
+operator (v cross3d w)
+  def a1: $w.c -> v.b::multiply;
+  def a2: $w.b -> v.c::multiply;
+  def b1: $w.a -> v.c::multiply;
+  def b2: $w.c -> v.a::multiply;
+  def c1: $w.b -> v.a::multiply;
+  def c2: $w.a -> v.b::multiply;
+  { a: $a2 -> a1::subtract,
+    b: $b2 -> b1::subtract,
+    c: $c2 -> c1::subtract} !
+end cross3d
+
+// First, make everything relative to an observer on the first hailstone. The Einstein move!
+// Then select lines that are not parallel, that is, velocity vectors are not multiples.
+def base: $hailstones -> \relative-first(
+  def origin: $(1);
+  @: [];
+  $(2..last)... -> \(
+    def val: $;
+    {x: $origin.x -> val.x::subtract, y: $origin.y -> val.y::subtract, z: $origin.z -> val.z::subtract,
+     xv: $origin.xv -> val.xv::subtract, yv: $origin.yv -> val.yv::subtract, zv: $origin.zv -> val.zv::subtract
+    }!
+  \) -> ..|@: $;
+  $@ !
+\relative-first) -> \non-parallel(
+  @: [$(1)];
+  $(2..last)... -> #
+  $@ !
+  <> def v: $;
+    // velocities are fairly small, so should be ok. Cross-product 0 means parallel
+    $@ -> \[i](($({a: §.xv, b: §.yv, c: §.zv}) cross3d $v({a: §.xv, b: §.yv, c: §.zv}))! \)
+    -> \(<~[<?($.a -> zero::compareTo <=0>)?($.b -> zero::compareTo <=0>)?($.c -> zero::compareTo <=0>)>]> $! \)
+    -> ..|@: $v;
+\non-parallel);
+
+// Next, the rock must go through the origin in this system. Since it must hit each line,
+// it must also go in each plane formed by a line and the origin. That plane is defined
+// by the cross-product of the lines start-point (vector from origin) and the velocity vector,
+// which gives the vector perpendicular to the plane. The plane through the origin is ax + by + cz = 0.
+// If a line passes through the origin, that cross-product is zero and the rock must move along it, but we want a plane.
+source find-rock-plane
+  @: 1;
+  $base(1) -> ($({a: §.x, b: §.y, c: §.z}) cross3d $({a: §.xv, b: §.yv, c: §.zv})) -> #
+
+  when <?($.a -> zero::compareTo <=0>)?($.b -> zero::compareTo <=0>)?($.c -> zero::compareTo <=0>)> do
+    @: $@ + 1;
+    $base($@) -> ($({a: §.x, b: §.y, c: §.z}) cross3d $({a: §.xv, b: §.yv, c: §.zv})) -> #
+  otherwise
+    $ !
+end find-rock-plane
+
+def rock-plane: $find-rock-plane;
+
+// time to intersect of line and plane through zero is the negative dot-product of line-start and plane normal,
+// divided by dot-product of line velocity and plane normal (if zero, no intersect, could be embedded)
+templates time-to-rock-plane
+  def val: $;
+  def v1: $.xv -> rock-plane.a::multiply;
+  def v2: $.yv -> rock-plane.b::multiply;
+  def v3: $.zv -> rock-plane.c::multiply;
+  $v1 -> v2::add -> v3::add -> #
+  when <?($ -> zero::compareTo <~=0>)> do
+    def p1: $val.x::negate -> rock-plane.a::multiply;
+    def p2: $val.y::negate -> rock-plane.b::multiply;
+    def p3: $val.z::negate -> rock-plane.c::multiply;
+    def p: $p1 -> p2::add -> p3::add;
+    def t: $ -> p::divide;
+    {t: $t, x: $val.xv -> t::multiply -> val.x::add, y: $val.yv -> t::multiply -> val.y::add, z: $val.zv -> t::multiply -> val.z::add} !
+end time-to-rock-plane
+
+def with-times: [$base... -> time-to-rock-plane];
+
+{ dx: $with-times(1).x -> with-times(2).x::subtract,
+  dy: $with-times(1).y -> with-times(2).y::subtract,
+  dz: $with-times(1).z -> with-times(2).z::subtract,
+  dt: $with-times(1).t -> with-times(2).t::subtract
+} -> \(
+  def diffs: $;
+  {
+    xv: $diffs.dt -> diffs.dx::divide,
+    yv: $diffs.dt -> diffs.dy::divide,
+    zv: $diffs.dt -> diffs.dz::divide
+  } !
+\) -> {
+  x: $.xv -> with-times(1).t::multiply -> with-times(1).x::subtract,
+  y: $.yv -> with-times(1).t::multiply -> with-times(1).y::subtract,
+  z: $.zv -> with-times(1).t::multiply -> with-times(1).z::subtract
+} -> {
+  // back to normal space
+  x: $.x -> hailstones(1).x::add,
+  y: $.y -> hailstones(1).y::add,
+  z: $.z -> hailstones(1).z::add
+} -> \(
+  def start: $;
+  $start.x -> start.y::add -> start.z::add !
+\) -> !OUT::write
