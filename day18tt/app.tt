@@ -1,0 +1,111 @@
+composer parse-plan
+  {direction: <'.'>, (<WS>) distance: <INT"1">, (<=' (#'>) colour: <HEX> (<=')'>)}
+end parse-plan
+
+def plan: [$IN::lines -> parse-plan];
+
+templates dig-trench
+  @: {back: 0"1", right: 0"1", direction: $(1).direction};
+  templates turn
+    when <{direction: <=$@dig-trench.direction>}> do !VOID
+    when <{direction: <='R'>}?($@dig-trench <{direction: <='U'>}>)> do
+      {left-corner: {x: $@dig-trench.right - 1"1", y: $@dig-trench.back - 1"1"}, right-corner: {x: $@dig-trench.right, y: $@dig-trench.back}} !
+      @dig-trench: {back: $@dig-trench.right - 1"1", right: $@dig-trench.back, direction: 'R'};
+    when <{direction: <='R'>}?($@dig-trench <{direction: <='D'>}>)> do
+      {left-corner: {x: $@dig-trench.right + 1"1", y: $@dig-trench.back}, right-corner: {x: $@dig-trench.right, y: $@dig-trench.back + 1"1"}} !
+      @dig-trench: {back: $@dig-trench.right, right: $@dig-trench.back + 1"1", direction: 'R'};
+    when <{direction: <='L'>}?($@dig-trench <{direction: <='U'>}>)> do
+      {left-corner: {x: $@dig-trench.right - 1"1", y: $@dig-trench.back}, right-corner: {x: $@dig-trench.right, y: $@dig-trench.back - 1"1"}} !
+      @dig-trench: {back: $@dig-trench.right, right: $@dig-trench.back - 1"1", direction: 'L'};
+    when <{direction: <='L'>}?($@dig-trench <{direction: <='D'>}>)> do
+      {left-corner: {x: $@dig-trench.right + 1"1", y: $@dig-trench.back + 1"1"}, right-corner: {x: $@dig-trench.right, y: $@dig-trench.back}} !
+      @dig-trench: {back: $@dig-trench.right + 1"1", right: $@dig-trench.back, direction: 'L'};
+    when <{direction: <='U'>}?($@dig-trench <{direction: <='R'>}>)> do
+      {left-corner: {x: $@dig-trench.back, y: $@dig-trench.right - 1"1"}, right-corner: {x: $@dig-trench.back + 1"1", y: $@dig-trench.right}} !
+      @dig-trench: {back: $@dig-trench.right, right: $@dig-trench.back + 1"1", direction: 'U'};
+    when <{direction: <='U'>}?($@dig-trench <{direction: <='L'>}>)> do
+      {left-corner: {x: $@dig-trench.back - 1"1", y: $@dig-trench.right + 1"1"}, right-corner: {x: $@dig-trench.back, y: $@dig-trench.right}} !
+      @dig-trench: {back: $@dig-trench.right + 1"1", right: $@dig-trench.back, direction: 'U'};
+    when <{direction: <='D'>}?($@dig-trench <{direction: <='R'>}>)> do
+      {left-corner: {x: $@dig-trench.back + 1"1", y: $@dig-trench.right - 1"1"}, right-corner: {x: $@dig-trench.back, y: $@dig-trench.right}} !
+      @dig-trench: {back: $@dig-trench.right - 1"1", right: $@dig-trench.back, direction: 'D'};
+    when <{direction: <='D'>}?($@dig-trench <{direction: <='L'>}>)> do
+      {left-corner: {x: $@dig-trench.back, y: $@dig-trench.right + 1"1"}, right-corner: {x: $@dig-trench.back - 1"1", y: $@dig-trench.right}} !
+      @dig-trench: {back: $@dig-trench.right, right: $@dig-trench.back - 1"1", direction: 'D'};
+    otherwise
+      'unexpected $; from $@dig-trench;' -> !OUT::write
+  end turn
+  sink move
+    when <?($@dig-trench <{direction: <='U'|='L'>}>)> do @dig-trench.back: $@dig-trench.back - $.distance;
+    otherwise @dig-trench.back: $@dig-trench.back + $.distance;
+  end move
+  $... -> #
+  $(1) -> turn !
+  <>
+    $ -> turn !
+    $ -> !move
+end dig-trench
+
+templates shoelace-formula
+ def edges: [$..., $(first)];
+ @: 0"1";
+ 1..~$edges::last -> @: $@ + $edges($).x * $edges($+1).y - $edges($ + 1).x * $edges($).y;
+ $@ ~/ 2 -> #
+ when <0"1"..> do $ !
+ otherwise -$ !
+end shoelace-formula
+
+// part 1
+[$plan -> dig-trench] -> \(
+  [$... -> $.left-corner] -> shoelace-formula !
+  [$... -> $.right-corner] -> shoelace-formula !
+\) -> ..=Max&{by: :(), select: :()} -> !OUT::write
+
+
+test 'example'
+  use shadowed core-system/
+    processor MockIn
+      source lines
+        [
+          'R 6 (#70c710)',
+          'D 5 (#0dc571)',
+          'L 2 (#5713f0)',
+          'D 2 (#d2c081)',
+          'R 2 (#59c680)',
+          'D 2 (#411b91)',
+          'L 5 (#8ceee2)',
+          'U 2 (#caa173)',
+          'L 1 (#1b58a2)',
+          'U 2 (#caa171)',
+          'R 2 (#7807d2)',
+          'U 3 (#a77fa3)',
+          'L 2 (#015232)',
+          'U 2 (#7a21e3)'
+        ]... !
+      end lines
+    end MockIn
+    def IN: $MockIn;
+  end core-system/
+
+  assert [$plan -> dig-trench] <=[
+    {left-corner: {x: 7"1", y: -1"1"}, right-corner: {x: 6"1", y: 0"1"}},
+    {left-corner: {x: 7"1", y: 5"1"}, right-corner: {x: 6"1", y: 4"1"}},
+    {left-corner: {x: 5"1", y: 5"1"}, right-corner: {x: 4"1", y: 4"1"}},
+    {left-corner: {x: 5"1", y: 6"1"}, right-corner: {x: 4"1", y: 7"1"}},
+    {left-corner: {x: 7"1", y: 6"1"}, right-corner: {x: 6"1", y: 7"1"}},
+    {left-corner: {x: 7"1", y: 9"1"}, right-corner: {x: 6"1", y: 8"1"}},
+    {left-corner: {x: 1"1", y: 9"1"}, right-corner: {x: 2"1", y: 8"1"}},
+    {left-corner: {x: 1"1", y: 7"1"}, right-corner: {x: 2"1", y: 6"1"}},
+    {left-corner: {x: 0"1", y: 7"1"}, right-corner: {x: 1"1", y: 6"1"}},
+    {left-corner: {x: 0"1", y: 4"1"}, right-corner: {x: 1"1", y: 5"1"}},
+    {left-corner: {x: 2"1", y: 4"1"}, right-corner: {x: 3"1", y: 5"1"}},
+    {left-corner: {x: 2"1", y: 2"1"}, right-corner: {x: 3"1", y: 1"1"}},
+    {left-corner: {x: 0"1", y: 2"1"}, right-corner: {x: 1"1", y: 1"1"}},
+    {left-corner: {x: 0"1", y: -1"1"}, right-corner: {x: 1"1", y: 0"1"}}
+  ]> 'trench corners'
+
+  assert [[$plan -> dig-trench] -> \(
+    [$... -> $.left-corner] -> shoelace-formula !
+    [$... -> $.right-corner] -> shoelace-formula !
+  \)] <[<=62"1">, <=24"1">]> 'part 1'
+end 'example'
