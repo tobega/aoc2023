@@ -109,3 +109,23 @@ test 'example'
     [$... -> $.right-corner] -> shoelace-formula !
   \)] <[<=62"1">, <=24"1">]> 'part 1'
 end 'example'
+
+'
+' -> !OUT::write
+
+templates fix-plan
+  templates decode-direction
+    <=[x00x]> 'R'!
+    <=[x01x]> 'D'!
+    <=[x02x]> 'L'!
+    <=[x03x]> 'U'!
+  end decode-direction
+  { direction: ($.colour and [x0fx]) -> $(last) -> decode-direction,
+    distance: $.colour::shift&{left: -4, fill: [x00x]} -> ($::asInteger)"1"} !
+end fix-plan
+
+// part 1
+[[$plan... -> fix-plan] -> dig-trench] -> \(
+  [$... -> $.left-corner] -> shoelace-formula !
+  [$... -> $.right-corner] -> shoelace-formula !
+\) -> ..=Max&{by: :(), select: :()} -> !OUT::write
