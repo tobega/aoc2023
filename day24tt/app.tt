@@ -100,7 +100,6 @@ $hailstones -> count-pairwise-intersections&{
 // part 2
 // The Einstein move here is to view the world relative to the first hailstone. Thanks to https://www.reddit.com/r/adventofcode/comments/18q0kfc/comment/kes6ywf/
 // The really beautiful part of it is that everything goes through the origin, which simplifies things
-// Assuming that I can get by with long integers here
 
 operator (v cross3d w)
   def a1: $w.c -> v.b::multiply;
