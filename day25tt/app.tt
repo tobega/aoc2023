@@ -25,23 +25,46 @@ def adjacency-list: $id-connections -> \(
   <> ..|@($.aid): $.bid; ..|@($.bid): $.aid;
 \);
 
-source kargers-algorithm
+source karger-stein-algorithm
   @: {
     edges: $id-connections,
     nodes: id´1:[id´1..id´$node-ids::count]
   };
-  $@.nodes::length..3:-1 -> #
-  $@ !
-  <>
-    def edge: $@.edges::length -> SYS::randomInt -> $ + 1 -> ^@.edges($);
-    @.nodes($edge.bid): $edge.aid; // union-find
-    @.edges: [$@.edges... -> \(
+  sink contract
+    def edge: $;
+    @karger-stein-algorithm.nodes($edge.bid): $edge.aid; // union-find
+    @karger-stein-algorithm.edges: [$@karger-stein-algorithm.edges... -> \(
       when <{aid: <=$edge.aid>, bid: <=$edge.bid>}|{aid: <=$edge.bid>, bid: <=$edge.aid>}> do !VOID
       when <{aid: <=$edge.bid>}> do {aid: $edge.aid, bid: $.bid} !
       when <{bid: <=$edge.bid>}> do {aid: $.aid, bid: $edge.aid} !
       otherwise $!
     \)];
-end kargers-algorithm
+  end contract
+  $@.nodes::length..6:-1 -> \(
+    $@karger-stein-algorithm.edges::length
+    -> SYS::randomInt -> $ + 1
+    -> ^@karger-stein-algorithm.edges($)
+    -> !contract \) -> !VOID
+  def remaining: $@;
+  def unique-edges: [{|$remaining.edges...|}...];
+  1..$unique-edges::length -> \(
+    @karger-stein-algorithm: $remaining;
+    $unique-edges($) -> !contract
+    def remaining: $@karger-stein-algorithm;
+    def unique-edges: [{|$remaining.edges...|}...];
+    1..$unique-edges::length -> \(
+      @karger-stein-algorithm: $remaining;
+      $unique-edges($) -> !contract
+      def remaining: $@karger-stein-algorithm;
+      def unique-edges: [{|$remaining.edges...|}...];
+      1..$unique-edges::length -> \(
+        @karger-stein-algorithm: $remaining;
+        $unique-edges($) -> !contract
+        $@karger-stein-algorithm -> {cut: $.edges::length, nodes: $.nodes} !
+      \) !
+    \) !
+  \) -> ..=Min&{by: :(cut:), select: :()} !
+end karger-stein-algorithm
 
 templates collect-groups
   def ids: $;
@@ -54,12 +77,12 @@ end collect-groups
 
 // part 1
 source part1
-  $kargers-algorithm -> #
-  when <{edges: <[](3)>}> do
+  $karger-stein-algorithm -> #
+  when <{cut: <=3>}> do
     $.nodes -> collect-groups -> [$...] -> \($ -> !OUT::write $!\) -> $(1).count * $(2).count !
   otherwise
-    '.$.edges::length;.' -> !OUT::write
-    $kargers-algorithm -> #
+    '.$.cut;.' -> !OUT::write
+    $karger-stein-algorithm -> #
 end part1
 $part1 -> '$#10;$;$#10;' -> !OUT::write
 
