@@ -37,9 +37,9 @@ class App
   
   state do
     table   :lines, [:idx, :line]
-    table   :first_digit, [:idx, :digit]
-    table   :last_digit, [:idx, :digit]
-    table   :numbers, [:idx, :value]
+    scratch   :first_digit, [:idx, :digit]
+    scratch   :last_digit, [:idx, :digit]
+    scratch   :numbers, [:idx, :value]
   end
 
   bloom :parse do
