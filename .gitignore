@@ -1,2 +1,4 @@
 *.jarr
 .pyret/
+input.arr
+input.txt
